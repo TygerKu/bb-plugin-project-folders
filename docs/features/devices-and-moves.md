@@ -2,9 +2,9 @@
 title: Device copies and moves
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-10
 status: active
-confidence: medium
+confidence: high
 tags: [devices, moves, filesystem]
 sources:
   - project-move.ts
@@ -41,7 +41,7 @@ The feature keeps project and section paths aligned with BB metadata across devi
 2. The move resolves the destination to an absolute path, rejects an unknown section, pending project move/archive, or a retry whose saved host/destination differs, then builds an in-memory journal for a new operation. An already-equal source and destination returns complete without writing a journal; nested source/destination paths reject (`section-move.ts:61-95`).
 3. It identifies same-project descendants and tree ancestors, then checks source/destination ownership. Unrelated section overlap, project roots, other projects’ roots and foreign-project environments reject. A detached-section check can permit a destination outside the project root; otherwise the destination must stay within that root (`section-move.ts:96-185`).
 4. For filesystem work it inventories live and archived hidden threads in batches of 200 for environments at source/destination. Active/starting/stopping/pending status, queued work or positive activity rejects. It checks without stopping, persists the journal and emits `changed`, drains exports, then rechecks and stops idle chats (`section-move.ts:186-225`, `section-move.ts:268-273`).
-5. Path existence selects the host operation: source only invokes `inspect` then `move`; destination only invokes `link`; both are accepted only when inspection recognizes the old path as the compatibility link from a completed move. Neither existing path rejects (`section-move.ts:243-293`).
+5. Path existence selects the host operation: source only invokes `inspect` then `move`; destination only invokes `link`; both are accepted only when inspection recognizes the old path as the compatibility link from a completed move. If neither the section path nor destination exists, the handler rejects before writing the move journal (`section-move.ts:243-267`).
 6. If the source is shared or destination already belongs to a section, it updates only this section’s path and host binding, completes the journal and returns. Otherwise it rebases descendant paths, host bindings, export paths and matching archive manifests in one transaction, then completes the journal (`section-move.ts:227-241`, `section-move.ts:294-346`).
 7. Caught errors are rethrown; if a journal row exists, its error is stored and `changed` is emitted. The process-local guard clears in `finally` (`section-move.ts:347-356`).
 
@@ -101,10 +101,10 @@ Section moves have two metadata-only branches: when the source is shared by anot
 
 | RPC / command | Purpose | Evidence |
 |---|---|---|
-| `project_move`, `pending_moves` | Move project and list pending moves | `server.ts:215-232` |
-| `section_move`, `pending_section_moves`, `thread_move` | Move/re-link section or move chat | `server.ts:188-195`, `server.ts:263-278` |
-| `copy_add`, `copy_remove`, `copy_edit` | Add, remove or update a device copy | `server.ts:338-359` |
-| `thread_place`, `thread_place_clear` | Change tree filing without moving workspace | `server.ts:242-253` |
+| `project_move`, `pending_moves` | Move project and list pending moves | `server.ts:189-207` |
+| `section_move`, `pending_section_moves`, `thread_move` | Move/re-link section or move chat | `server.ts:162-169`, `server.ts:237-253` |
+| `copy_add`, `copy_remove`, `copy_edit` | Add, remove or update a device copy | `server.ts:312-334` |
+| `thread_place`, `thread_place_clear` | Change tree filing without moving workspace | `server.ts:216-228` |
 | CLI `move-section`, `move-chat`, `copy-add`, `copy-remove` | Run matching operations through BB CLI | `server.ts:3757-3768`, `server.ts:3802-3812`, `server.ts:3869-3919` |
 
 ## Gotchas
