@@ -2,9 +2,9 @@
 title: Agent rules
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-10
 status: active
-confidence: high
+confidence: medium
 tags: [agents-md, rules, templates]
 sources:
   - agents-template.ts
@@ -15,7 +15,7 @@ sources:
 ---
 # Agent rules
 
-TL;DR: Projects & Sections manages project and section rule templates, writes plugin-owned blocks into `AGENTS.md` and `CLAUDE.md`, or passes custom rules to BB-started sessions (`agents-template.ts:1-18`, `server.ts:3565-3589`).
+TL;DR: Projects & Sections manages project and section rule templates in `AGENTS.md`, synchronizes custom-rule blocks into an existing `CLAUDE.md`, and passes session-targeted custom rules to BB-started chats (`agents-template.ts:1-18`, `server.ts:1698-1713`, `server.ts:3565-3589`).
 
 ## Purpose
 
@@ -42,7 +42,7 @@ The handler considers project roots and non-group sections, skips records in man
 | Request pending | Button disabled; old result and error cleared (`agents-apply.tsx:21-24`, `agents-apply.tsx:35-38`). |
 | RPC resolves | Counts and optional first per-folder error are rendered (`agents-apply.tsx:25-26`, `agents-apply.tsx:39-44`). |
 | RPC rejects | Error is rendered as an alert; `finally` clears the busy state (`agents-apply.tsx:27-30`, `agents-apply.tsx:46-50`). |
-| Folder-level apply fails | Handler increments `failed`, records the first error string and continues the loop (`server.ts:3293-3313`). |
+| Folder-level apply fails | Handler increments `failed`, records the first error string and continues the loop (`server.ts:3270-3288`). |
 
 ### `AgentsRulesEditor`
 
@@ -86,14 +86,14 @@ Custom rules target `file`, `session` or `both`; startup text is separate and li
 | Failure | Result |
 |---|---|
 | File changed since editor read | The `rules_save` handler detects the expected-SHA conflict and throws a reopen-before-saving error (`server.ts:2989-3009`). |
-| Group selected | Rules read, file save and settings save reject group nodes (`server.ts:2939-2948`, `server.ts:2989-2998`, `server.ts:3011-3016`). |
+| Group selected | Rules read, file save and settings save reject group nodes (`server.ts:2934-2937`, `server.ts:2984-2987`, `server.ts:3000-3005`). |
 | A host file read/write fails | Missing files read as `null`; other read errors and file-write errors propagate, so the handler returns no successful result (`server.ts:1660-1672`, `server.ts:1684-1692`, `server.ts:2999-3009`). |
 
 ## Business rules
 
 - Managed content is delimited by exact plugin markers; text outside the managed block is retained (`agents-template.ts:1-18`, `agents-template.ts:52-66`).
 - Without a saved mode, an existing file without a managed block resolves to `manual`; new-folder seeding leaves an existing `AGENTS.md` untouched (`server.ts:1479-1498`, `server.ts:1694-1710`).
-- Rules are unavailable on groups (`server.ts:2939-2948`, `server.ts:3011-3016`).
+- Rules read, file save and settings save reject group nodes (`server.ts:2934-2937`, `server.ts:2984-2987`, `server.ts:3000-3005`).
 - Saving file content with a stale expected SHA throws a conflict instead of overwriting concurrent edits (`server.ts:2989-3009`).
 - Session-only custom rules remove the plugin's custom file block; `file` and `both` retain it. BB sessions receive custom rules unless the target is `file` only (`server.ts:3020-3023`, `server.ts:3565-3589`).
 
@@ -108,7 +108,7 @@ Custom rules target `file`, `session` or `both`; startup text is separate and li
 ## Gotchas
 
 - Editing a managed block manually does not update the plugin’s stored mode/template record; a later apply can replace it (`server.ts:1479-1498`, `server.ts:3264-3313`).
-- `CLAUDE.md` bridging is handled when the selected rule channel writes files; it is not a second independent template store (`server.ts:3011-3086`).
+- The plugin does not create a `CLAUDE.md` bridge when a file is absent; custom rules are synchronized only into an existing `CLAUDE.md` (`server.ts:1698-1713`).
 
 <!-- lane-pilot:backlinks -->
 ## Referenced by

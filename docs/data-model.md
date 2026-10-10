@@ -2,7 +2,7 @@
 title: Data model
 type: data-model
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-10
 status: active
 confidence: medium
 tags: [data-model, sqlite, persistence]
@@ -192,7 +192,7 @@ Mode lifecycle (the same transition behavior applies to `project_rules.mode`):
 
 | From | To | Function and condition |
 |---|---|---|
-| absent or any saved mode | `manual` | `rules_settings_save` persists the selection and returns before template/custom block writes (`server.ts:2890-2929`) |
+| absent or any saved mode | `manual` | `rules_settings_save` stores the rule row, then returns before file writes (`server.ts:3000-3040`) |
 | absent or any saved mode | `inherit` | Saves mode; updates/removes the custom file block, while the effective template resolves through inheritance (`server.ts:996-1011`, `server.ts:2890-2953`) |
 | absent or any saved mode | `custom` | Saves mode and stamps the selected project/section template plus file-targeted custom block (`server.ts:2890-2948`) |
 
@@ -244,9 +244,9 @@ Purpose: Persist each thread’s idle timestamp and wake counter for cache keepa
 | `idleAt` | Millisecond timestamp that starts the current idle spell | Integer timestamp; `0` is the initial sentinel |
 | `wakes` | Keepalive turns sent during the idle spell | Non-negative integer; reset to zero on a real idle event |
 | `updatedAt` | Millisecond timestamp of the last keepalive-state write | Integer timestamp |
-| `lastPingAt` | Nullable timestamp slot for a ping | Nullable integer timestamp; the current keepalive store does not write or read this column (`server.ts:751`, `cache-keepalive.ts:83-115`) |
+| `lastPingAt` | Time the coordinator last attempted to send a keepalive ping | Nullable integer timestamp in milliseconds; written before `threads.send`, and read by `getLastPingAt` (`server.ts:751`, `cache-keepalive.ts:125-135`, `cache-keepalive.ts:365-382`) |
 
-Lifecycle: a real `thread.idle` event sets `idleAt` and resets `wakes`; an idle event following a keepalive ping updates `idleAt` and preserves `wakes`; `thread.archived` and `thread.deleted` remove the row (`cache-keepalive.ts:182-200`, `server.ts:768-771`). Writers are the SQLite keepalive store; readers are the periodic keepalive sweep (`cache-keepalive.ts:83-115`, `cache-keepalive.ts:243-271`).
+Lifecycle: a real `thread.idle` event sets `idleAt` and resets `wakes`; an idle event following a keepalive ping updates `idleAt` and preserves `wakes`; each attempted ping updates `lastPingAt`; `thread.archived` and `thread.deleted` remove the row (`cache-keepalive.ts:211-229`, `cache-keepalive.ts:365-382`, `server.ts:768-771`). Writers are the SQLite keepalive store; the sweep reads idle time and wake count, and the store exposes `lastPingAt` through `getLastPingAt` (`cache-keepalive.ts:93-135`, `cache-keepalive.ts:258-363`).
 
 ### `item_styles`
 
@@ -269,7 +269,7 @@ Purpose: Manual tree filing for a chat when its working directory differs from t
 | `projectId` | BB project containing the thread | Logical reference |
 | `folderId` | Section ID; `NULL` means project root | Logical `folders.id` |
 
-Writers: `thread_place`; readers: list response and chat tree association (`server.ts:2257-2285`, `server.ts:2444-2504`, `chat-list.ts:251-263`). Stale `folderId` rows are removed by cleanup (`server.ts:2464-2477`).
+Writers: `thread_place` and `thread_place_clear`; readers: the list response and chat tree association (`server.ts:2246-2274`, `server.ts:2462-2466`, `chat-list.ts:251-263`). During list assembly, a row whose non-null `folderId` no longer exists in `folders` is deleted before placements are read (`server.ts:2457-2466`).
 
 ### `execution_defaults`
 
@@ -311,7 +311,7 @@ State lifecycle:
 | `archiving` | `archived` | Files/chats complete, folder/path rows are removed and the error is cleared (`archive.ts:360-370`) |
 | `archiving` | `archiving` + error | Any operation failure stores its message and publishes a change for retry (`archive.ts:371-375`) |
 | `archived` | `restoring` | `restore` begins a restore operation (`archive.ts:349-391`) |
-| `restoring` | removed | Restore completes and deletes the archive row (`archive.ts:409-423`) |
+| `restoring` | removed | Restore has recreated tree/path rows and unarchived the saved chats, then deletes the archive row (`archive.ts:439-457`) |
 | `restoring` | `restoring` + error | Failed restore stores the error and leaves the journal retryable (`archive.ts:459-463`) |
 
 Writers/readers: `makeArchives` writes and parses manifests; project/section moves rebase paths; project deletion removes owned manifests (`archive.ts:63-72`, `project-move.ts:123-145`, `server.ts:2059-2062`).
@@ -336,7 +336,7 @@ Purpose: Retry journal for section folder moves and relinks.
 | `folderId` | Section being moved | Primary key / logical `folders.id` |
 | `data` | JSON move record | Source/destination, completion and error details |
 
-State-like lifecycle: a metadata-only shared-path update writes a completed journal with the path binding; a filesystem move writes an incomplete journal before draining exports, then marks it complete after descendant paths, exports and archive manifests are rebased. A failure after journal creation stores an error for retry (`section-move.ts:227-241`, `section-move.ts:268-273`, `section-move.ts:294-353`). Writers/readers: section move module; project move and project cleanup read/remove journals (`server.ts:1924-1932`).
+State-like lifecycle: a metadata-only shared-path update writes a completed journal with the path binding; a filesystem move writes an incomplete journal before draining exports, then marks it complete after descendant paths, exports and archive manifests are rebased. A failure after journal creation stores an error for retry (`section-move.ts:227-241`, `section-move.ts:268-273`, `section-move.ts:294-353`). Writers/readers: `makeSectionMoves` reads rows for its journal list and writes move updates; project cleanup reads rows to identify and delete journals owned by the removed project (`section-move.ts:24-50`, `server.ts:2061-2068`).
 
 ### `thread_moves`
 

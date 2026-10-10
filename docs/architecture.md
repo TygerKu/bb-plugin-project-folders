@@ -2,7 +2,7 @@
 title: Architecture
 type: architecture
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-10
 status: active
 confidence: medium
 tags: [architecture, bb-plugin, runtime]
@@ -67,7 +67,7 @@ C4Container
 - `host.ts` binds the host contract to filesystem, move/link, GitHub remote and session inventory handlers (`host.ts:7-16`).
 - State modules divide domain behavior: `archive.ts`, `section-remove.ts`, `project-move.ts`, `section-move.ts`, `thread-move.ts`, `execution.ts`, `session-policy.ts`, `session-policy-server.ts`, `preferences.ts` and `chat-list.ts` (`server.ts:1-59`).
 - `export-queue.ts` coalesces queued history exports, runs one at a time and retries failures (`export-queue.ts:1-63`).
-- `cache-keepalive.ts` schedules opt-in pings for eligible pinned Claude-family threads and persists idle/wake state (`server.ts:753-771`, `cache-keepalive.ts:202-303`). See [Prompt cache keepalive](features/cache-keepalive.md).
+- `cache-keepalive.ts` schedules opt-in pings for eligible pinned Claude-family threads and persists idle/wake state plus the last ping-attempt timestamp (`server.ts:751-771`, `cache-keepalive.ts:93-135`, `cache-keepalive.ts:365-382`). See [Prompt cache keepalive](features/cache-keepalive.md).
 - `backup.ts` validates full plugin backups and imports/exports durable tables (`backup.ts:7-19`, `backup.ts:48-59`, `backup.ts:159-191`).
 
 ### Plugin initialization
@@ -84,7 +84,7 @@ C4Container
 | Legacy settings migration | No `preferences` row under `agents` | Attempts read, logs failure, validates defaults/values and stores one shared record (`server.ts:772-830`). |
 | Existing settings | `agents` row exists | Parses saved JSON into defaults plus schema-valid values (`server.ts:772-805`). |
 | Session-policy extension | BB provides `experimental_vkSessionPolicy` | Installs the resolver; otherwise capability is reported unavailable and no hook is installed (`session-policy-server.ts:52-68`, `session-policy-server.ts:144-150`). |
-| RPC registration | Plugin initialization reaches registrations | Registers the main handlers and discoverable read-only section-list contract (`server.ts:3540-3564`). |
+| RPC registration | Server finishes constructing `handlers` | Registers `rpcContract` with the full handler map, then registers `sectionsContract` with the `sections_list` handler and discoverable metadata (`server.ts:3515-3540`). |
 
 ## Key Flows
 
@@ -129,13 +129,13 @@ For distinct paths, the move implementation checks relevant chats, records a jou
 
 ### Project relocation coordinator
 
-`makeProjectMoves` creates a move journal reader/writer, a `busy` predicate for incomplete records and a `canonical` path mapper that follows up to 100 completed relocations. A single in-memory `running` flag serializes move attempts (`project-move.ts:18-46`).
+`makeProjectMoves` creates a JSON journal reader/writer, a `busy` predicate for incomplete records, a canonical-path resolver and a host client. Its process-local `running` flag permits one move call at a time (`project-move.ts:18-46`).
 
-1. `move` rejects a concurrent attempt, finds the BB project and local source on the selected host, then resumes an incomplete move only when host and destination match; otherwise it creates a new journal candidate (`project-move.ts:47-80`).
-2. It rejects overlapping source/destination ownership by another project, other-project environments inside the source, this project’s environments outside it, and unfinished archive operations. The host `inspect` call validates the paths before any journal barrier is recorded (`project-move.ts:81-139`).
-3. It pages through archived and active threads and refuses active/starting/stopping/pending states, queued work or positive activity. Once clear, it persists the journal barrier, publishes the change, drains pending exports and rechecks/stops threads admitted during preflight (`project-move.ts:140-171`).
-4. It asks the host to move the folder, updates the BB source path, rebases archive manifests, folder paths and export paths, then commits the path updates and `complete=true` in a database transaction (`project-move.ts:172-233`).
-5. On a failure after journal persistence, it stores the error and publishes a change before rethrowing. `finally` always releases the in-memory running guard (`project-move.ts:234-243`).
+1. The journal reader parses every `project_moves.data` value; the writer replaces a row keyed by journal ID. `busy(projectId)` reports any incomplete row for that project. `canonical(hostId, path)` repeatedly follows completed source-to-destination mappings on that host; it returns the first path with no matching mapping, and throws after 100 mapping steps (`project-move.ts:23-44`).
+2. `move` rejects a concurrent attempt, then finds the BB project and its local-path source on the requested host. It reuses an incomplete journal only when host and destination match; otherwise it rejects the retry. With no pending journal, it creates a candidate from the current source and resolved destination (`project-move.ts:45-80`).
+3. Preflight rejects overlapping project ownership, environments that cross the project root, unfinished archive work, invalid host paths, and active or queued chat work. It inventories archived and unarchived threads in pages of 200. After a non-stopping check passes, it writes the journal barrier, publishes a change, drains pending exports, then repeats the check while stopping the threads (`project-move.ts:81-171`).
+4. It asks the selected host to move the directory, updates the BB project source, rewrites matching archive manifests, and transactionally rebases section paths and export paths while marking the journal complete (`project-move.ts:172-233`).
+5. A caught error is rethrown. If the journal was persisted, the handler records the error and publishes the changed state; `finally` releases the running guard (`project-move.ts:234-243`).
 
 | Branch | Condition | Result |
 |---|---|---|
@@ -143,7 +143,7 @@ For distinct paths, the move implementation checks relevant chats, records a jou
 | Retry | Incomplete journal matches host and destination | Reuses its original paths; a different destination/host is rejected (`project-move.ts:62-80`). |
 | Preflight failure | Ownership, environment, archive, host path or thread checks fail | Rejects; if a journal already exists, records the error and preserves it for retry (`project-move.ts:81-171`, `project-move.ts:234-240`). |
 | Complete | Host move and metadata updates succeed | Marks journal complete, clears error and returns it (`project-move.ts:172-233`). |
-| Path canonicalization limit | More than 100 completed move links would be followed | Throws “Too many project relocation links” (`project-move.ts:34-44`). |
+| Path canonicalization limit | The resolver follows 100 completed relocation mappings | Throws “Too many project relocation links” after the loop (`project-move.ts:34-44`). |
 
 ### Archive a section
 
@@ -151,7 +151,7 @@ The archive module inventories matching chats and files, saves chat exports, rec
 
 ## Invariants
 
-- A group stores a synthetic path that is not a filesystem path (`server.ts:2152-2178`, `section-tree.ts:8-11`).
+- A group stores the synthetic path `@group/<id>`; the group creation handler labels it as non-filesystem state, and tree helpers treat groups as having no folder (`server.ts:2208-2216`, `section-tree.ts:8-11`).
 - Section environment selection must match project and host and rejects groups or folders covered by an active move/archive (`server.ts:3655-3691`).
 - Project, section and chat moves persist operation state so retries can resume without overwriting occupied destinations (`project-move.ts:26-31`, `section-move.ts:268-293`, `section-move.ts:243-266`, `thread-move.ts:108-136`).
 - Chat history in BB remains canonical; exported files are snapshots written beneath the section folder (`server.ts:1770-1783`, `server.ts:1829-1839`).
