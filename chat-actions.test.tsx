@@ -91,8 +91,12 @@ it("opens the project menu on right-click with the same actions as the ellipsis"
     await view.findByRole("menuitem", { name: /New section/ }),
   ).toBeTruthy();
   expect(view.getByRole("menuitem", { name: /New project/ })).toBeTruthy();
+  expect(view.getByRole("menuitem", { name: /^Move$/ })).toBeTruthy();
   expect(view.getByRole("menuitem", { name: /^Delete$/ })).toBeTruthy();
   expect(view.queryByRole("menuitem", { name: /^Archive$/ })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Mark all as read" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Appearance" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Working rules" })).toBeNull();
   view.lifecycle.unmount();
 });
 it("sends new chats on a project to the plugin composer with the section tree", async () => {
@@ -122,6 +126,11 @@ it("opens the section menu on right-click with delete, not new project", async (
   ).toBeTruthy();
   expect(view.getByRole("menuitem", { name: /^Delete$/ })).toBeTruthy();
   expect(view.queryByRole("menuitem", { name: /New project/ })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Mark all as read" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Appearance" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Working rules" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Change path" })).toBeNull();
+  expect(view.queryByRole("menuitem", { name: "Move to group…" })).toBeNull();
   view.lifecycle.unmount();
 });
 it("hides a chat idle for over 48 hours under Show all", async () => {
@@ -635,6 +644,7 @@ it("opens the folder ellipsis on a phone-width viewport without crashing", async
   expect(
     await view.findByRole("menuitem", { name: /New section/ }),
   ).toBeTruthy();
+  expect(view.getByText("Sorting")).toBeTruthy();
   expect(view.getByText("Chat sorting")).toBeTruthy();
   expect(view.getByText("Section sorting")).toBeTruthy();
   expect(
@@ -715,5 +725,98 @@ it("keeps the title truncated when a chat shows the folder it works in", async (
   // The machine the chat runs on, with its folder in the tooltip.
   expect(badge?.textContent).toBe("Mini");
   expect(badge?.getAttribute("title")).toContain("/work/Section");
+  view.lifecycle.unmount();
+});
+it("marks unread subtree chats read and skips archived and pending", async () => {
+  const nested = {
+    ...folder,
+    id: "f2",
+    parentId: "f1",
+    path: "/work/Section/Nested",
+    name: "Nested",
+  };
+  const unread = { ...thread, isUnread: true };
+  const nestedUnread = {
+    ...thread,
+    id: "t2",
+    title: "Nested unread",
+    environment: { ...thread.environment, id: "e2" },
+    isUnread: true,
+  };
+  const pending = {
+    ...thread,
+    id: "t3",
+    title: "Waiting chat",
+    isUnread: true,
+    hasPendingInteraction: true,
+  };
+  const archived = {
+    ...thread,
+    id: "t4",
+    title: "Archived unread",
+    isUnread: true,
+    isArchived: true,
+  };
+  const view = renderSlot(
+    app.threadLists[0]!,
+    { activeThreadId: null, onNavigate() {} },
+    {
+      sidebarThreads: {
+        threads: [unread, nestedUnread, pending, archived],
+        projects: [],
+      },
+      rpc: {
+        list: () => ({
+          folders: [folder, nested],
+          roots: [root],
+          bindings: { e1: "f1", e2: "f2" },
+          errors: [],
+        }),
+      },
+    },
+  );
+  fireEvent.contextMenu(await view.findByText("Section"));
+  fireEvent.click(await view.findByRole("menuitem", { name: "Mark all as read" }));
+  await waitFor(() => {
+    const reads = view.inspection.sidebarActionCalls.filter(
+      (call) => call.method === "setRead",
+    );
+    expect(reads.map((call) => call.threadId).sort()).toEqual(["t1", "t2"]);
+    expect(reads.every((call) => call.read === true)).toBe(true);
+  });
+  view.lifecycle.unmount();
+});
+it("marks every unread project chat from the project root menu", async () => {
+  const atRoot = { ...thread, isUnread: true };
+  const inSection = {
+    ...thread,
+    id: "t2",
+    title: "Section unread",
+    environment: { ...thread.environment, id: "e2" },
+    isUnread: true,
+  };
+  const view = renderSlot(
+    app.threadLists[0]!,
+    { activeThreadId: null, onNavigate() {} },
+    {
+      sidebarThreads: { threads: [atRoot, inSection], projects: [] },
+      rpc: {
+        list: () => ({
+          folders: [folder],
+          roots: [root],
+          bindings: { e2: "f1" },
+          errors: [],
+        }),
+      },
+    },
+  );
+  fireEvent.contextMenu(await view.findByText("Project"));
+  fireEvent.click(await view.findByRole("menuitem", { name: "Mark all as read" }));
+  await waitFor(() => {
+    const reads = view.inspection.sidebarActionCalls.filter(
+      (call) => call.method === "setRead",
+    );
+    expect(reads.map((call) => call.threadId).sort()).toEqual(["t1", "t2"]);
+  });
   view.lifecycle.unmount();
 });

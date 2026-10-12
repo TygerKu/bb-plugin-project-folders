@@ -533,3 +533,34 @@ export function hasFolderUnread<T extends ChatThread>(params: {
   );
   return sectionThreads.some((t) => !t.isArchived && !!t.isUnread);
 }
+
+/** Unread chats in a subtree that can be marked read (not archived, not waiting). */
+export function threadsToMarkRead<T extends ChatThread>(params: {
+  folderId: string;
+  projectId: string;
+  root: boolean;
+  folders: readonly {
+    id: string;
+    projectId: string;
+    parentId: string | null;
+  }[];
+  bindings: Record<string, string>;
+  places?: Record<string, string>;
+  threads: readonly T[];
+}): T[] {
+  const { folderId, projectId, root, folders, bindings, places, threads } =
+    params;
+  const sectionThreads = root
+    ? threads.filter((t) => t.projectId === projectId)
+    : collectFolderThreads(
+        folderId,
+        projectId,
+        folders,
+        bindings,
+        threads,
+        places,
+      );
+  return sectionThreads.filter(
+    (t) => !t.isArchived && !!t.isUnread && !t.hasPendingInteraction,
+  );
+}

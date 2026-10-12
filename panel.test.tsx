@@ -2,6 +2,7 @@
 import { beforeAll, afterEach, expect, it } from "vitest";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { installTestMatchMedia, setCompactViewport } from "./test-match-media";
 let app: Awaited<ReturnType<typeof loadPluginApp>>;
 beforeAll(async () => {
@@ -897,5 +898,87 @@ it("shows a GitHub icon left of new-chat only when githubUrl is set", async () =
   expect(view.baseElement.querySelectorAll("a.pf-icon")).toHaveLength(1);
   expect(view.getByText("Group")).toBeTruthy();
   expect(view.getByText("Plain")).toBeTruthy();
+  view.lifecycle.unmount();
+});
+
+it("keeps appearance, rules, change path and move to group on the Actions menu", async () => {
+  const view = renderSlot(app.navPanels[0]!, { subPath: "" }, { rpc });
+  await view.findByText("Project");
+  const rowMore = await view.findByRole("button", { name: "Actions: Section" });
+  fireEvent.pointerDown(rowMore, { button: 0, ctrlKey: false, pointerType: "mouse" });
+  expect(await view.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
+  expect(view.getByRole("menuitem", { name: "Rules" })).toBeTruthy();
+  expect(view.getByRole("menuitem", { name: "Change path" })).toBeTruthy();
+  expect(view.queryByRole("menuitem", { name: "Mark all as read" })).toBeNull();
+  view.lifecycle.unmount();
+});
+
+it("marks unread section chats read from the Panel Actions menu", async () => {
+  const unread: PluginSidebarThread = {
+    id: "t1",
+    projectId: "p1",
+    title: "Unread chat",
+    titleFallback: null,
+    parentThreadId: null,
+    sectionId: null,
+    originKind: null,
+    originPluginId: null,
+    providerId: "codex",
+    hasPendingInteraction: false,
+    activity: {
+      workflows: 0,
+      backgroundAgents: 0,
+      backgroundCommands: 0,
+      planMode: 0,
+      goals: 0,
+    },
+    indicator: "none",
+    indicatorLabel: null,
+    isUnread: true,
+    isPinned: false,
+    isArchived: false,
+    environment: {
+      id: "e1",
+      name: null,
+      branchName: null,
+      providerId: null,
+      workspaceDisplayKind: null,
+    },
+    host: { id: "h1", name: "Mini" },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    lastReadAt: Date.now(),
+    latestAttentionAt: Date.now(),
+  };
+  const view = renderSlot(
+    app.navPanels[0]!,
+    { subPath: "" },
+    {
+      sidebarThreads: { threads: [unread], projects: [] },
+      rpc: {
+        ...rpc,
+        list: () => ({
+          ...rpc.list(),
+          bindings: { e1: "f1" },
+        }),
+      },
+    },
+  );
+  await view.findByText("Project");
+  const rowMore = await view.findByRole("button", { name: "Actions: Section" });
+  fireEvent.pointerDown(rowMore, {
+    button: 0,
+    ctrlKey: false,
+    pointerType: "mouse",
+  });
+  fireEvent.click(await view.findByRole("menuitem", { name: "Mark all as read" }));
+  await waitFor(() => {
+    const reads = view.inspection.sidebarActionCalls.filter(
+      (call) => call.method === "setRead",
+    );
+    expect(reads).toEqual([
+      expect.objectContaining({ method: "setRead", threadId: "t1", read: true }),
+    ]);
+  });
   view.lifecycle.unmount();
 });

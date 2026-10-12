@@ -12,6 +12,7 @@ import {
   isSectionInactive,
   isSectionCollapsed,
   hasFolderUnread,
+  threadsToMarkRead,
   INACTIVE_SECTION_THRESHOLD_MS,
   sortFoldersByActivity,
 } from "./chat-list";
@@ -689,5 +690,78 @@ describe("auto-collapsing inactive sections", () => {
         threads: readThreads,
       }),
     ).toBe(false);
+  });
+
+  it("selects unread subtree threads and skips archived and pending interaction", () => {
+    const threads = [
+      {
+        id: "parent-unread",
+        projectId: "p1",
+        environment: { id: "env1" },
+        isUnread: true,
+      },
+      {
+        id: "nested-unread",
+        projectId: "p1",
+        environment: { id: "env2" },
+        isUnread: true,
+      },
+      {
+        id: "archived",
+        projectId: "p1",
+        environment: { id: "env1" },
+        isUnread: true,
+        isArchived: true,
+      },
+      {
+        id: "pending",
+        projectId: "p1",
+        environment: { id: "env1" },
+        isUnread: true,
+        hasPendingInteraction: true,
+      },
+      {
+        id: "read",
+        projectId: "p1",
+        environment: { id: "env1" },
+        isUnread: false,
+      },
+      {
+        id: "other-project",
+        projectId: "p2",
+        environment: { id: "env1" },
+        isUnread: true,
+      },
+    ];
+    expect(
+      threadsToMarkRead({
+        folderId: "sec1",
+        projectId: "p1",
+        root: false,
+        folders,
+        bindings,
+        threads,
+      }).map((t) => t.id),
+    ).toEqual(["parent-unread", "nested-unread"]);
+    expect(
+      threadsToMarkRead({
+        folderId: "sub1",
+        projectId: "p1",
+        root: false,
+        folders,
+        bindings,
+        threads,
+      }).map((t) => t.id),
+    ).toEqual(["nested-unread"]);
+    expect(
+      threadsToMarkRead({
+        folderId: "p1",
+        projectId: "p1",
+        root: true,
+        folders,
+        bindings,
+        threads,
+      }).map((t) => t.id),
+    ).toEqual(["parent-unread", "nested-unread"]);
   });
 });
