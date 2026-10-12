@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.37 — Mark all as read and a shorter section menu
+
+- Section, group and project-root menus gain «Прочитать всё»: it marks every unread chat in the subtree (the whole project from the root), skips archived chats and chats waiting for a question or approval, and is hidden when nothing in the subtree is unread.
+- The row context menu keeps essentials and one «Сортировка ›» submenu; appearance, working rules, change path and move to group stay in the Panel «Действия» menu.
+
 ## 0.6.36 — No CLAUDE.md bridge: sections get the project's rules again
 
 - The plugin no longer creates a one-line `CLAUDE.md` (`@AGENTS.md`) next to AGENTS.md, does not rewrite the project root's CLAUDE.md when project rules are saved, and adds the custom block only to a CLAUDE.md that already exists.

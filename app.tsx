@@ -6,7 +6,7 @@ import {
   PendingSectionMoves,
   SectionMoveDialog,
 } from "./move-dialog";
-import { ChatSortMenu, SectionSortMenu } from "./chat-settings";
+import { useChatSettings } from "./chat-settings";
 import {
   PluginSettings,
   SettingsNav,
@@ -52,9 +52,11 @@ import {
   isSectionCollapsed,
   parseCollapseState,
   placeOf,
+  type ChatSort,
   type CollapseRecord,
   hasFolderUnread,
   sortFoldersByActivity,
+  threadsToMarkRead,
 } from "./chat-list";
 import { t, useLanguage, LanguagePicker, direction } from "./i18n";
 import {
@@ -92,7 +94,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "./components/ui/dropdown-menu";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -1897,6 +1905,59 @@ function ThreadRow({
     </div>
   );
 }
+function markFolderThreadsRead(
+  setRead: (threadId: string, read: boolean) => Promise<void>,
+  params: Parameters<typeof threadsToMarkRead>[0],
+) {
+  void Promise.allSettled(
+    threadsToMarkRead(params).map((thread) => setRead(thread.id, true)),
+  );
+}
+
+function RowSortMenu() {
+  const [settings, update] = useChatSettings();
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Icon name="Sort" />
+        {t("Сортировка")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuLabel>{t("Сортировка чатов")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={settings.sort}
+          onValueChange={(sort) => update({ sort: sort as ChatSort })}
+        >
+          <DropdownMenuRadioItem value="activity">
+            {t("По активности")}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="title">
+            {t("По алфавиту")}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="created">
+            {t("Сначала новые")}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{t("Сортировка разделов")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={settings.sortSectionsByActivity ? "activity" : "manual"}
+          onValueChange={(value) =>
+            update({ sortSectionsByActivity: value === "activity" })
+          }
+        >
+          <DropdownMenuRadioItem value="activity">
+            {t("Активные сверху")}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="manual">
+            {t("Ручной порядок")}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
 function FolderHeading({
   folder,
   root,
@@ -1904,13 +1965,10 @@ function FolderHeading({
   unread = false,
   highlighted,
   refused = false,
-  rulesAllowed,
   look,
   group = false,
   device,
-  onAppearance,
   onNewGroup,
-  onMoveToGroup,
   onDeleteGroup,
   onToggle,
   onNewChat,
@@ -1921,13 +1979,12 @@ function FolderHeading({
   onCreate,
   onConfigure,
   onMove,
-  onRules,
   onRename,
-  onRelocate,
   onRemove,
   onArchive,
   hidden = false,
   onToggleHidden,
+  onMarkAllRead,
 }: {
   folder: Folder;
   root: boolean;
@@ -1939,7 +1996,6 @@ function FolderHeading({
   highlighted: boolean;
   /** The highlighted row refuses this chat: shown, but not as a promise. */
   refused?: boolean;
-  rulesAllowed: boolean;
   look: {
     icon: string;
     color?: string;
@@ -1948,9 +2004,7 @@ function FolderHeading({
   group?: boolean;
   /** Shown next to the name when the section lives on another device. */
   device?: string;
-  onAppearance: () => void;
   onNewGroup: () => void;
-  onMoveToGroup?: () => void;
   onDeleteGroup: () => void;
   onToggle: () => void;
   onNewChat: () => void;
@@ -1961,11 +2015,10 @@ function FolderHeading({
   onCreate: () => void;
   onConfigure: () => void;
   onMove: () => void;
-  onRules: () => void;
   onRename: () => void;
-  onRelocate: () => void;
   onRemove: () => void;
   onArchive: () => void;
+  onMarkAllRead?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const row = rowDecoration(look);
@@ -2053,6 +2106,12 @@ function FolderHeading({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onMarkAllRead && (
+            <DropdownMenuItem onSelect={onMarkAllRead}>
+              <Icon name="Check" />
+              {t("Прочитать всё")}
+            </DropdownMenuItem>
+          )}
           {root && (
             <DropdownMenuItem onSelect={onNewProject}>
               <Icon name="FolderPlus" />
@@ -2067,30 +2126,7 @@ function FolderHeading({
             <Icon name="Layers" />
             {t("Новая группа")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onConfigure}>
-            <Icon name="SlidersHorizontal" />
-            {t("Настройка")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onAppearance}>
-            <Icon name="Palette" />
-            {t("Оформление")}
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <ChatSortMenu />
-          <SectionSortMenu />
-          {root && (
-            <DropdownMenuItem onSelect={onMove}>
-              <Icon name="Folder" />
-              {t("Перенести")}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          {rulesAllowed && (
-            <DropdownMenuItem onSelect={onRules}>
-              <Icon name="Settings" />
-              {t("Правила работы")}
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem onSelect={onRename}>
             <Icon name="Edit" />
             {t("Переименовать")}
@@ -2101,46 +2137,39 @@ function FolderHeading({
               {hidden ? t("Показать в дереве") : t("Скрыть из дерева")}
             </DropdownMenuItem>
           )}
-          {onMoveToGroup && (
-            <DropdownMenuItem onSelect={onMoveToGroup}>
-              <Icon name="MoveTo" />
-              {t("Переместить в группу…")}
-            </DropdownMenuItem>
-          )}
-          {!root && !group && (
-            <DropdownMenuItem onSelect={onRelocate}>
-              <Icon name="FolderExport" />
-              {t("Изменить путь")}
-            </DropdownMenuItem>
-          )}
+          <RowSortMenu />
+          <DropdownMenuItem onSelect={onConfigure}>
+            <Icon name="SlidersHorizontal" />
+            {t("Настройка")}
+          </DropdownMenuItem>
           {root && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <DropdownMenuItem onSelect={onMove}>
+              <Icon name="Folder" />
+              {t("Перенести")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          {root && (
+            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+              <Icon name="Trash2" />
+              {t("Удалить")}
+            </DropdownMenuItem>
+          )}
+          {!root &&
+            (group ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={onDeleteGroup}
+              >
+                <Icon name="Trash2" />
+                {t("Удалить группу")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem variant="destructive" onSelect={onArchive}>
                 <Icon name="Trash2" />
                 {t("Удалить")}
               </DropdownMenuItem>
-            </>
-          )}
-          {!root && (
-            <>
-              <DropdownMenuSeparator />
-              {group ? (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={onDeleteGroup}
-                >
-                  <Icon name="Trash2" />
-                  {t("Удалить группу")}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem variant="destructive" onSelect={onArchive}>
-                  <Icon name="Trash2" />
-                  {t("Удалить")}
-                </DropdownMenuItem>
-              )}
-            </>
-          )}
+            ))}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -2166,12 +2195,6 @@ function Tree(props: PluginThreadListProps) {
       hidden: isHidden(f, root) ? undefined : true,
     }).catch((e) => alert(String(e)));
   };
-  const [styling, setStyling] = useState<{
-    projectId: string;
-    folder: Folder | null;
-    name: string;
-  } | null>(null);
-  const [regrouping, setRegrouping] = useState<Folder | null>(null);
   const { threads, projects, status } = experimental_useSidebarThreads();
   const environmentKey = threads.map((t) => t.environment?.id ?? "").join("|");
   useEffect(refresh, [environmentKey, refresh]);
@@ -2180,7 +2203,6 @@ function Tree(props: PluginThreadListProps) {
   const [modal, setModal] = useState<Modal | null>(null);
   const [newProject, setNewProject] = useState(false);
   const [movingProject, setMovingProject] = useState<Folder | null>(null);
-  const [movingSection, setMovingSection] = useState<Folder | null>(null);
   const [movingChat, setMovingChat] = useState<PluginSidebarThread | null>(
     null,
   );
@@ -2532,7 +2554,6 @@ function Tree(props: PluginThreadListProps) {
           unread={folderUnread && listSettings.boldUnread}
           highlighted={dropTarget === f.id}
           refused={dropTarget === f.id && !!dropReason}
-          rulesAllowed={root || !group}
           look={folderLook}
           group={group}
           device={(() => {
@@ -2544,18 +2565,20 @@ function Tree(props: PluginThreadListProps) {
           onNewGroup={() =>
             setModal({ action: "group", target, folder: f, level })
           }
-          onMoveToGroup={
-            !root && reparentTargets(data.folders, f, data.roots).length
-              ? () => setRegrouping(f)
-              : undefined
-          }
           onDeleteGroup={() => void deleteGroup(f)}
-          onAppearance={() =>
-            setStyling({
-              projectId: f.projectId,
-              folder: root ? null : f,
-              name: f.name,
-            })
+          onMarkAllRead={
+            folderUnread
+              ? () =>
+                  markFolderThreadsRead(actions.setRead, {
+                    folderId: f.id,
+                    projectId: f.projectId,
+                    root,
+                    folders: data.folders,
+                    bindings: data.bindings,
+                    places: data.places,
+                    threads,
+                  })
+              : undefined
           }
           onToggle={() => toggle(f.id, folderClosed)}
           onNewChat={() => void open(f, root)}
@@ -2615,21 +2638,9 @@ function Tree(props: PluginThreadListProps) {
             props.onNavigate();
           }}
           onMove={() => setMovingProject(f)}
-          onRules={() =>
-            setModal({
-              action: "rules",
-              target,
-              folder: f,
-              level,
-              copies: root
-                ? data.roots.filter((r) => r.projectId === f.projectId)
-                : undefined,
-            })
-          }
           onRename={() =>
             setModal({ action: "rename", target, folder: f, level })
           }
-          onRelocate={() => setMovingSection(f)}
           onRemove={() =>
             setModal({ action: "remove", target, folder: f, level })
           }
@@ -2876,11 +2887,6 @@ function Tree(props: PluginThreadListProps) {
         onClose={() => setMovingProject(null)}
         onMoved={refresh}
       />
-      <SectionMoveDialog
-        folder={movingSection}
-        onClose={() => setMovingSection(null)}
-        onMoved={refresh}
-      />
       <ProjectDialog
         defaultHostId={data.roots[0]?.hostId}
         open={newProject}
@@ -2891,18 +2897,6 @@ function Tree(props: PluginThreadListProps) {
         modal={modal}
         onClose={() => setModal(null)}
         onCreated={refresh}
-      />
-      <AppearanceDialog
-        target={styling}
-        folders={data.folders}
-        onClose={() => setStyling(null)}
-      />
-      <MoveToGroupDialog
-        folder={regrouping}
-        folders={data.folders}
-        roots={data.roots}
-        onClose={() => setRegrouping(null)}
-        onMoved={refresh}
       />
     </div>
   );
@@ -3026,6 +3020,8 @@ function Panel({ subPath }: PluginNavPanelProps) {
     };
   }, [subPath, data.folders.length, data.roots.length]);
   useLanguage();
+  const { threads } = experimental_useSidebarThreads();
+  const threadActions = experimental_useSidebarThreadActions();
   const [modal, setModal] = useState<Modal | null>(null);
   const [newProject, setNewProject] = useState(false);
   const [movingProject, setMovingProject] = useState<Folder | null>(null);
@@ -3360,6 +3356,15 @@ function Panel({ subPath }: PluginNavPanelProps) {
     const dropHere = dropKey?.key === key ? dropKey.pos : null;
     const folderLook = look(f.projectId, root ? null : f);
     const row = rowDecoration(folderLook);
+    const folderUnread = hasFolderUnread({
+      folderId: f.id,
+      projectId: f.projectId,
+      root,
+      folders: data.folders,
+      bindings: data.bindings,
+      places: data.places,
+      threads,
+    });
     return (
       <div key={key} className={root ? "pf-side-project" : undefined}>
         <div
@@ -3449,6 +3454,24 @@ function Panel({ subPath }: PluginNavPanelProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {folderUnread && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    markFolderThreadsRead(threadActions.setRead, {
+                      folderId: f.id,
+                      projectId: f.projectId,
+                      root,
+                      folders: data.folders,
+                      bindings: data.bindings,
+                      places: data.places,
+                      threads,
+                    })
+                  }
+                >
+                  <Icon name="Check" />
+                  {t("Прочитать всё")}
+                </DropdownMenuItem>
+              )}
               {!group && (
                 <DropdownMenuItem
                   onSelect={() =>
