@@ -2,9 +2,9 @@
 title: Chat list and activity
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-13
 status: active
-confidence: high
+confidence: medium
 tags: [chat-list, activity, sidebar]
 sources:
   - chat-list.ts
@@ -27,7 +27,8 @@ The plugin replaces a flat thread listing with project/section rows and per-plac
 2. Chats are ordered by pinned status first; then by title, creation time or activity time (`chat-list.ts:44-70`).
 3. When a list is collapsed, the filter keeps pinned, unread, active, busy or recent chats and applies the configured per-list limit (`chat-list.ts:146-177`).
 4. Activity sorting uses the latest of update, attention and creation timestamps, while treating an update within two seconds of `lastReadAt` as a read-only event (`chat-list.ts:180-199`).
-5. Sections can auto-collapse based on activity age; manually stored collapse choices override automatic behavior (`chat-list.ts:95-131`, `chat-list.ts:202-220`).
+5. Sections can auto-collapse based on activity age; manually stored collapse choices override automatic behavior (`chat-list.ts:335-413`).
+6. When activity ordering is enabled, sibling projects or sections rank by unread reply, then busy work, then latest conversation activity; manual order breaks ties. The setting off keeps saved order (`chat-list.ts:415-504`, `app.tsx:2411-2425`).
 
 ## Modes
 
@@ -37,10 +38,9 @@ The plugin replaces a flat thread listing with project/section rows and per-plac
 | Collapsed list | limit 1–100 | Maximum visible chats after filtering |
 | Idle hiding | 0–720 hours | Age cutoff; pinned, unread, active and busy chats remain visible |
 | Section auto-collapse | on/off, threshold 0.25–720 hours | Collapse inactive sections; default is two hours |
-| View | `comfortable` / `compact`; indent 0–32 | Tree density and nesting spacing |
-| Show hidden | on/off | Include hidden projects and sections in the tree; hidden items appear dimmed (`preferences.ts:66-90`, `chat-settings.tsx:260-279`, `app.tsx:2155-2167`) |
+| Section ordering | activity / manual | Activity mode ranks unread, busy, then recent sections; manual mode uses saved order (`chat-settings.tsx:98-110`, `chat-list.ts:415-504`) |
 
-Values and defaults come from `preferences.ts:66-115`; collapsed-list sorting and exclusions come from `chat-list.ts:14-29`, `chat-list.ts:146-177`.
+Values and defaults come from `preferences.ts:68-119`; collapsed-list sorting and exclusions come from `chat-list.ts:14-29`, `chat-list.ts:146-177`. Density, indentation and hidden-item display are covered by [Appearance and preferences](appearance-settings.md).
 
 ## Failures
 
@@ -57,7 +57,9 @@ Values and defaults come from `preferences.ts:66-115`; collapsed-list sorting an
 - `isThreadBusy` recognizes active status, non-none indicator, pending interaction and active workflow/background activity (`chat-list.ts:202-220`).
 - A manual placement overrides the section inferred from the chat environment; clearing it restores environment-based placement (`chat-list.ts:251-263`).
 - Chat-list settings are parsed field-by-field with defaults when stored data is invalid (`chat-list.ts:14-32`, `preferences.ts:170-197`).
-- The “Show hidden” switch controls visibility of hidden project/section rows; the hide flag itself is stored on the project or section appearance record ([Project and section tree](project-tree.md#modes), `chat-settings.tsx:260-279`, `app.tsx:2155-2167`).
+- Activity ordering ranks a folder with unread or pending-reply chats first, then one with busy work, then one with the latest conversation activity; manual order resolves equal ranks (`chat-list.ts:415-504`).
+- Activity age for collapsing sections excludes a read-only `updatedAt` when it is within two seconds of `lastReadAt`; idle hiding instead counts `lastReadAt` as access (`chat-list.ts:131-160`, `chat-list.ts:180-199`).
+- The “Show hidden” switch controls visibility of hidden project/section rows; its preference and item flag are described in [Appearance and preferences](appearance-settings.md) and [Project and section tree](project-tree.md#modes) (`app.tsx:2183-2188`, `app.tsx:2411-2417`).
 
 ## Public API
 

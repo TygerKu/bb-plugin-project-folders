@@ -2,7 +2,7 @@
 title: API and commands
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-13
 status: active
 confidence: medium
 tags: [api, rpc, cli, host]
@@ -28,14 +28,14 @@ sources:
 ---
 # API and commands
 
-TL;DR: The plugin exposes typed BB plugin RPC, a read-only section-list RPC for other plugins, BB host operations and a `bb project-folders` CLI command group; it does not define standalone HTTP routes (`server.ts:187-623`, `server.ts:3540-3564`, `server.ts:3741-4059`).
+TL;DR: The plugin exposes typed BB plugin RPC, a read-only section-list RPC for other plugins, BB host operations and a `bb project-folders` CLI command group; it does not define standalone HTTP routes (`server.ts:187-623`, `server.ts:3540-3564`, `server.ts:3741-4042`).
 
 ## How it works
 
 1. The server defines the main plugin methods in `rpcContract` and registers their handlers with BB. Its `list` operation returns folders, project roots, environment bindings, manual placements, export errors and connected machine identities (`server.ts:284-300`, `server.ts:2444-2512`). A separate discoverable, read-only `sections_list` contract returns section metadata to other plugins and accepts an optional project ID (`server.ts:170-185`, `server.ts:3541-3564`).
 2. Plugin UI surfaces call those RPC operations through the BB SDK (`app.tsx:60-70`, `composer-chip.tsx:154-180`).
 3. Server handlers and move coordinators dispatch device-specific filesystem, remote and inventory work through `moveHostContract`, with a target host ID in BB call options (`server.ts:878-880`, `server.ts:2439-2441`, `project-move.ts:172-175`, `session-policy-server.ts:221-224`, `host.ts:5-16`).
-4. BB registers the CLI command group `project-folders`; its handler validates args and calls the same domain operations (`server.ts:3741-3850`, `server.ts:3853-4059`).
+4. BB registers the CLI command group `project-folders`; its handler validates args and calls the same domain operations (`server.ts:3741-3850`, `server.ts:3853-4042`).
 
 ## Modes
 
@@ -153,7 +153,7 @@ The host contract operations are typed in `move-contract.ts:1-56`.
 1. The factory opens the project-move journal, exposes `list`, `busy` and canonical-path resolution, and creates a host client. A move has a process-local single-operation guard (`project-move.ts:18-45`).
 2. It finds the requested project and its local-path source on the requested host. An unfinished journal may only be retried with its saved host and destination; otherwise it creates a journal in memory with the current source and resolved destination (`project-move.ts:46-77`).
 3. Before filesystem work it rejects overlapping project source trees, other-project environments inside the source, same-project environments outside the source, and non-archived section archive records. It asks the host to inspect the move and inventories all hidden, archived and unarchived project threads in pages of 200 (`project-move.ts:78-139`).
-4. The preflight rejects active/starting/stopping/pending threads, queued work and positive activity. It then writes the journal as a barrier, emits `changed`, drains pending exports, repeats the thread check while stopping idle threads, and asks the host to move the directory (`project-move.ts:140-177`).
+4. The preflight rejects active/starting/stopping/pending threads, queued work and positive activity. It then writes the journal as a barrier, emits `changed`, drains pending exports, and runs a second check that stops threads that still pass the busy-work guard before asking the host to move the directory (`project-move.ts:140-177`).
 5. After the host move it updates the BB project source path. It rebases archive manifests, section paths and export paths in the plugin database, marks the journal complete, clears its error, emits `changed` and returns the journal (`project-move.ts:178-227`).
 6. Any failure is rethrown. The catch stores the error only when the journal is already present in persistent storage; the `finally` block always clears the in-memory running guard. Since the journal is first persisted after preflight, a failure before that write leaves no retry record (`project-move.ts:70-80`, `project-move.ts:166-169`, `project-move.ts:234-243`).
 
@@ -239,11 +239,11 @@ Missing or unreadable files become empty input, and JSON parsing accepts line co
 | BB CLI | `bb project-folders rules show\|set <project-id> <folder-id-or-dash> [options]` | Read/save rules |
 | BB CLI | `bb project-folders sync <thread-id>` | Export chat history |
 
-Command definitions and argument parsing: `server.ts:3741-3850`, `server.ts:3853-4059`.
+Command definitions and argument parsing: `server.ts:3741-3850`, `server.ts:3853-4042`.
 
 ## Failures
 
-- Zod validation rejects invalid RPC and CLI inputs before their handlers run (`server.ts:187-200`, `server.ts:3853-4059`).
+- Zod validation rejects invalid RPC and CLI inputs before their handlers run (`server.ts:187-200`, `server.ts:3853-4042`).
 - BB and host SDK errors return through RPC/CLI error handling; filesystem moves preserve journals for retry (`section-move.ts:347-353`, `project-move.ts:228-246`).
 - Session-context settings can be stored even if the BB extension is unavailable, but no enforcement hook is installed (`session-policy-server.ts:52-68`).
 
@@ -251,7 +251,7 @@ Command definitions and argument parsing: `server.ts:3741-3850`, `server.ts:3853
 
 - Every RPC operation is registered against a typed input/output contract (`server.ts:187-623`, `server.ts:3540`).
 - `sections_list` is separate and read-only; its optional `projectId` filters the result (`server.ts:170-185`, `server.ts:3541-3564`).
-- CLI commands validate required arguments and call the domain handlers; `--json` is removed from the argument list before parsing (`server.ts:3853-4059`).
+- CLI commands validate required arguments and call the domain handlers; `--json` is removed from the argument list before parsing (`server.ts:3853-4042`).
 - Section removal rejects active chats, queued work, pending chat moves, pending section moves or archives; `purge` also refuses shared paths and project/environment ownership conflicts (`section-remove.ts:66-150`, `section-remove.ts:187-197`).
 - Backup import defaults to `replace`; `merge` inserts rows without replacing local rows, and both modes reject while a move or archive is in progress (`server.ts:3514-3527`, `backup.ts:127-165`, `backup.ts:179-190`).
 - Host operations target a host through BB call options; the host ID is not part of the `moveHostContract` operation payload (`project-move.ts:172-175`, `server.ts:2439-2441`, `move-contract.ts:10-56`).

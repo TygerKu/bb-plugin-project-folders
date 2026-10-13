@@ -2,12 +2,13 @@
 title: Appearance and preferences
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-13
 status: active
-confidence: high
+confidence: medium
 tags: [appearance, preferences, settings]
 sources:
   - preferences.ts
+  - prefs-store.tsx
   - appearance.tsx
   - chat-list.ts
   - server.ts
@@ -25,11 +26,14 @@ The plugin stores common preferences on the BB server so the sidebar, management
 
 ## How it works
 
-1. `prefs_get` returns parsed shared preferences, per-item styles and whether UI preferences have been saved (`server.ts:581-589`, `server.ts:3460-3477`).
-2. Parsing merges partial or old data with defaults, then validates each field and style (`preferences.ts:170-211`).
-3. The appearance editor selects a preset or edits level styles, then `prefs_save` persists global preferences and can replace all item styles (`appearance.tsx:707-766`, `server.ts:3479-3495`).
-4. A project/section style is saved or deleted using its `p:`/`f:` key; the UI resolves inherited styles and renders glyphs, colors and fills (`preferences.ts:216-225`, `appearance.tsx:391-447`, `server.ts:3496-3505`).
-5. List settings determine sort order, list limits, idle hiding and automatic collapse (`preferences.ts:66-115`, `chat-list.ts:14-32`).
+1. `usePrefs` exposes one module-level preference snapshot to sidebar, panel and settings subscribers through `useSyncExternalStore`; the first subscriber loads `prefs_get` and later `prefs` realtime events reload it (`prefs-store.tsx:17-19`, `prefs-store.tsx:58-68`).
+2. The store parses shared preferences and per-item styles before publishing them. If the server has no saved preferences, it reads the legacy browser chat-list key, merges valid values and attempts to save the migrated preferences (`prefs-store.tsx:32-55`, `preferences.ts:170-215`).
+3. Preference saves update the shared snapshot before calling `prefs_save`; a rejected call restores the previous snapshot and is rethrown. Item-style saves do the same with `item_style_save`, sending `null` when the style is empty (`prefs-store.tsx:69-103`).
+4. `prefs_get` returns parsed shared preferences, per-item styles and whether UI preferences have been saved (`server.ts:581-589`, `server.ts:3460-3477`).
+5. Parsing merges partial or old data with defaults, then validates each field and style (`preferences.ts:170-215`).
+6. The appearance editor selects a preset or edits level styles, then `prefs_save` persists global preferences and can replace all item styles (`appearance.tsx:707-766`, `server.ts:3479-3495`).
+7. A project/section style is saved or deleted using its `p:`/`f:` key; the UI resolves inherited styles and renders glyphs, colors and fills (`preferences.ts:216-225`, `appearance.tsx:391-447`, `server.ts:3496-3505`).
+8. List settings determine sort order, list limits, idle hiding, section ordering and automatic collapse (`preferences.ts:68-119`, `chat-list.ts:14-32`, `chat-list.ts:415-504`).
 
 ## Modes
 
@@ -63,6 +67,8 @@ The settings page has two JSON transfer scopes. Appearance export/import carries
 | Preference data is partial or stale | Valid values are retained; invalid fields/styles use defaults (`preferences.ts:170-211`). |
 | Item style key or value is invalid | The parser drops that entry (`preferences.ts:199-211`). |
 | Preference save fails | The settings UI reports the error instead of clearing it (`appearance.tsx:707-715`). |
+| Initial `prefs_get` fails | The store marks itself loaded while retaining its current snapshot, which starts with defaults (`prefs-store.tsx:17-19`, `prefs-store.tsx:32-55`). |
+| `prefs_save` or `item_style_save` fails | The hook restores its previous shared snapshot and rethrows the RPC error (`prefs-store.tsx:69-103`). |
 
 ## Business rules
 
@@ -70,6 +76,7 @@ The settings page has two JSON transfer scopes. Appearance export/import carries
 - A nested section inherits an ancestor’s appearance only when that style has `cascade` enabled (`preferences.ts:59-64`, `appearance.tsx:439-447`).
 - Item styles can store a `hidden` flag for a project or section; tree filtering and the show-hidden switch are described in [Project and section tree](project-tree.md#modes) (`preferences.ts:59-64`, `app.tsx:2155-2167`).
 - Invalid persisted preferences are repaired field-by-field; unsupported item keys/styles are dropped (`preferences.ts:170-211`).
+- A browser-only chat-list setting is migrated only when the server reports no stored preferences; the migration save failure is swallowed and the migrated value remains in the current snapshot (`prefs-store.tsx:39-48`).
 - Import can replace global settings and optionally replace all per-item looks (`server.ts:590-597`, `server.ts:3479-3495`).
 - Full backup import is separate from appearance import; replacement affects all durable plugin tables, and both import modes reject while moves or archives are unfinished (`backup.ts:7-28`, `backup.ts:105-139`, `backup.ts:179-190`).
 
@@ -91,3 +98,4 @@ The settings page has two JSON transfer scopes. Appearance export/import carries
 ## Referenced by
 
 - [Data model](../data-model.md)
+- [Chat list and activity](chat-list.md)

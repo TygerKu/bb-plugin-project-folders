@@ -10,18 +10,18 @@ Built by Lane Pilot from page frontmatter.
 
 | Page | Type | Status | Updated |
 |---|---|---|---|
-| [RPC and host contract behavior](api-contracts.md) | component | active | 2026-10-10 |
-| [API and commands](api.md) | component | active | 2026-10-09 |
-| [Architecture](architecture.md) | architecture | active | 2026-10-10 |
+| [RPC and host contract behavior](api-contracts.md) | component | active | 2026-10-13 |
+| [API and commands](api.md) | component | active | 2026-10-13 |
+| [Architecture](architecture.md) | architecture | active | 2026-10-13 |
 | [Data model](data-model.md) | data-model | active | 2026-10-10 |
 | [Decisions](decisions.md) | decisions | active | 2026-09-27 |
 | [Deployment](deployment.md) | deployment | active | 2026-10-09 |
 | [Agent rules](features/agent-rules.md) | component | active | 2026-10-10 |
-| [Appearance and preferences](features/appearance-settings.md) | component | active | 2026-10-09 |
+| [Appearance and preferences](features/appearance-settings.md) | component | active | 2026-10-13 |
 | [Section archive and restore](features/archive-and-restore.md) | component | active | 2026-10-09 |
 | [Prompt cache keepalive](features/cache-keepalive.md) | component | active | 2026-10-10 |
 | [Chat history export](features/chat-history-export.md) | component | active | 2026-10-09 |
-| [Chat list and activity](features/chat-list.md) | component | active | 2026-10-09 |
+| [Chat list and activity](features/chat-list.md) | component | active | 2026-10-13 |
 | [Device copies and moves](features/devices-and-moves.md) | component | active | 2026-10-10 |
 | [Execution defaults](features/execution-settings.md) | component | active | 2026-10-09 |
 | [Interface language](features/language.md) | component | active | 2026-09-27 |

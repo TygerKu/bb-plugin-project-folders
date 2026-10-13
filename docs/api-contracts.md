@@ -2,7 +2,7 @@
 title: RPC and host contract behavior
 type: component
 created: 2026-10-09
-updated: 2026-10-10
+updated: 2026-10-13
 status: active
 confidence: medium
 tags: [api, rpc, host, section-removal]
@@ -24,12 +24,12 @@ TL;DR: The plugin RPC contract validates calls at the BB boundary, the host cont
 
 ## Purpose
 
-These contracts define the inputs and outputs shared by plugin surfaces, server handlers and connected-host handlers. The main RPC registers its contract with the handler map; the host entry registers the host contract with host-local implementations (`server.ts:3540`, `host.ts:7-17`).
+These contracts define the inputs and outputs shared by plugin surfaces, server handlers and connected-host handlers. The main RPC registers its contract with the server handler map; the host entry passes `moveHostContract` and maps its six operations to host-local functions (`server.ts:3539-3540`, `move-contract.ts:10-56`, `host.ts:7-16`).
 
 ## How it works
 
 1. `rpcContract` declares each RPC name with Zod input and output schemas. BB registers this contract against the server handler object; a client invokes a named operation and receives its declared output or a rejected call when validation or the handler fails (`server.ts:161-220`, `server.ts:3539-3540`).
-2. BB keeps host selection outside the host payload: callers provide `{ hostId }` in call options while operation fields are validated against `moveHostContract`. The server calls that contract for the selected host, and the host entry supplies the handler map that BB dispatches there (`move-contract.ts:7-10`, `host.ts:7-17`, `project-move.ts:172-175`).
+2. BB keeps host selection outside the host payload: callers provide `{ hostId }` in call options while operation fields are validated against `moveHostContract`. The server calls that contract for the selected host, and the host entry maps `folder_edit`, `inspect`, `move`, `link`, `github_remotes` and `session_inventory` to implementations (`move-contract.ts:10-56`, `host.ts:7-16`, `project-move.ts:172-175`).
 3. `removeSection` resolves a real folder section, then refuses concurrent chat moves, an unfinished move for this section, or any pending section archive in its project. `archive` clears its GitHub cache entry and delegates to the archive coordinator; other modes calculate section members and eligible chats (`section-remove.ts:66-92`, `section-remove.ts:71-80`).
 4. For `unbind` and `purge`, it rejects a child section outside the selected subtree. Purge additionally rejects a nested BB project, a path shared by another section, a section outside its project root, or a ready environment from another project (`section-remove.ts:93-150`).
 5. It selects non-archived project chats by explicit placement in the subtree or by environment path. If the path is shared, environment matching only selects chats placed directly in the removed section. A selected chat with a child outside the set or active/queued work rejects removal (`section-remove.ts:151-197`).
@@ -52,7 +52,7 @@ Schema failures reject the RPC call; output schemas constrain the values a handl
 ### `moveHostContract` dispatch and branches
 
 1. The contract declares a Zod input and output schema for each host operation. The server creates a client from that contract; call sites pass the selected `hostId` in BB call options (`move-contract.ts:10-55`, `project-move.ts:45-45`, `project-move.ts:135-139`).
-2. BB sends the named operation to that host. The host entry registers the same contract with a handler for every operation (`host.ts:7-17`).
+2. BB sends the named operation to that host. `host.ts` passes `moveHostContract` and provides one handler for each operation declared in that contract (`move-contract.ts:10-56`, `host.ts:7-16`).
 3. Contract validation checks operation payload shape before the handler runs. For `inspect`, `move` and `link`, the contract accepts non-empty source/destination strings; filesystem handlers perform path normalization and absolute-path checks (`move-contract.ts:7-9`, `move-files.ts:14-32`, `move-files.ts:96-109`).
 4. A handler returns the declared output or rejects the call. Filesystem, inventory and GitHub inspection errors propagate to the calling server operation (`host.ts:7-17`, `move-files.ts:14-118`, `session-inventory.ts:26-97`, `github-remote.ts:1-30`).
 
