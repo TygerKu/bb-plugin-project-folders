@@ -2,7 +2,7 @@
 title: Architecture
 type: architecture
 created: 2026-09-27
-updated: 2026-10-10
+updated: 2026-10-13
 status: active
 confidence: medium
 tags: [architecture, bb-plugin, runtime]
@@ -133,7 +133,7 @@ For distinct paths, the move implementation checks relevant chats, records a jou
 
 1. The journal reader parses every `project_moves.data` value; the writer replaces a row keyed by journal ID. `busy(projectId)` reports any incomplete row for that project. `canonical(hostId, path)` repeatedly follows completed source-to-destination mappings on that host; it returns the first path with no matching mapping, and throws after 100 mapping steps (`project-move.ts:23-44`).
 2. `move` rejects a concurrent attempt, then finds the BB project and its local-path source on the requested host. It reuses an incomplete journal only when host and destination match; otherwise it rejects the retry. With no pending journal, it creates a candidate from the current source and resolved destination (`project-move.ts:45-80`).
-3. Preflight rejects overlapping project ownership, environments that cross the project root, unfinished archive work, invalid host paths, and active or queued chat work. It inventories archived and unarchived threads in pages of 200. After a non-stopping check passes, it writes the journal barrier, publishes a change, drains pending exports, then repeats the check while stopping the threads (`project-move.ts:81-171`).
+3. Preflight rejects overlapping project ownership, environments that cross the project root, unfinished archive work, invalid host paths, and active or queued chat work. It inventories archived and unarchived threads in pages of 200. After `checkThreads(false)` passes, it persists the journal, calls `changed`, drains pending exports, then runs `checkThreads(true)`, which checks each thread again and stops it if the busy-work guard passes (`project-move.ts:140-171`).
 4. It asks the selected host to move the directory, updates the BB project source, rewrites matching archive manifests, and transactionally rebases section paths and export paths while marking the journal complete (`project-move.ts:172-233`).
 5. A caught error is rethrown. If the journal was persisted, the handler records the error and publishes the changed state; `finally` releases the running guard (`project-move.ts:234-243`).
 
