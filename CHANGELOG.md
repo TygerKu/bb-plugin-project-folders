@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.2 — Responsive settings with readable explanations
+
+- Wrap settings controls below their labels when the available pane is narrow, keeping long explanations and Russian labels readable. Verified in the live BB interface at 900px and 390px viewport widths, with Pokecut and Default fallback colors.
+- Includes the 0.7.0 community features and the 0.7.1 status-pill sizing fix. Provider/status display and repository visibility checks remain off by default.
+
+Thank you @TygerKu, @MoYiha, @rigerc and @victorlitvinenko for helping improve Projects & Sections!
+
 ## 0.7.1 — Readable status pills in narrow sidebars
 
 - Keep optional chat status pills readable beside long chat titles; only the title shrinks. Found and checked in the live BB sidebar after 0.7.0.
