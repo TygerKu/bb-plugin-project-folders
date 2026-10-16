@@ -2017,3 +2017,33 @@
 .pf-hidden > :first-child {
   opacity: 0.55;
 }
+
+/* Optional provider/status rows use the host's artwork and theme palette. */
+.pf-provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--pk-muted, var(--muted-foreground));
+}
+.pf-provider-icon { width: 16px; height: 16px; }
+.pf-thread-state {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: var(--pk-radius-pill, 999px);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--pk-muted, var(--muted-foreground));
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.pf-state-working { color: var(--pk-info, var(--timeline-accent)); }
+.pf-state-waiting { color: var(--pk-warning, var(--warning-text)); }
+.pf-state-failed { color: var(--pk-danger, var(--destructive)); }
+.pf-state-unread { color: var(--pk-success, var(--success)); }

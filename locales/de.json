@@ -413,5 +413,14 @@
   "только в сессии BB": "Nur in BB-Sitzung",
   "В режиме «Свой файл» плагин не пишет в файлы, поэтому свои правила действуют только в сессиях, запущенных из BB.": "Im Modus „Eigene Datei“ schreibt das Plugin nicht in Dateien, daher gelten eigene Regeln nur in aus BB gestarteten Sitzungen.",
   "Например: отвечай по-русски, коммиты — по Conventional Commits": "Zum Beispiel: Antworte auf Deutsch, Commits nach Conventional Commits",
-  "Например: запусти скилл и пришли текущие задачи": "Zum Beispiel: Skill starten und aktuelle Aufgaben senden"
+  "Например: запусти скилл и пришли текущие задачи": "Zum Beispiel: Skill starten und aktuelle Aufgaben senden",
+  "Стиль отображения чатов": "Thread-Statusanzeige",
+  "Показывать провайдера и текущий статус рядом с названием чата. Обычный вариант оставляет прежний вид списка.": "Provider und aktuellen Status neben dem Chattitel anzeigen.",
+  "Обычный": "Klassisch",
+  "Провайдер и статус": "Provider und Status",
+  "Сбой": "Fehlgeschlagen",
+  "Нужно ваше внимание": "Benötigt Ihre Aufmerksamkeit",
+  "Работает": "In Arbeit",
+  "Непрочитано": "Ungelesen",
+  "Неактивен": "Inaktiv"
 }

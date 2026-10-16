@@ -73,6 +73,9 @@ import {
   useBbNavigate,
   experimental_useSidebarThreads,
   experimental_useSidebarThreadActions,
+  experimental_useProviders,
+  experimental_ProviderIcon as ProviderIcon,
+  type ExperimentalProviderIconProps,
   experimental_NewThreadComposer as NewThreadComposer,
   type PluginThreadListProps,
   type PluginNavPanelProps,
@@ -112,6 +115,7 @@ import {
   Root as Tooltip,
   Trigger as TooltipTrigger,
 } from "@radix-ui/react-tooltip";
+import { statusLabels, threadStatus } from "./thread-status";
 import "./style.css";
 type Target = { projectId: string; folderId: string | null };
 type Modal = {
@@ -1700,7 +1704,11 @@ function ThreadRow({
   onUnplace,
   worksIn,
   onDrag,
+  threadDisplay,
+  provider,
 }: {
+  threadDisplay: "classic" | "provider-status";
+  provider?: ExperimentalProviderIconProps["provider"] & { displayName: string };
   onMove: (thread: PluginSidebarThread) => void;
   /** Present while the chat is filed somewhere it does not work. */
   onUnplace?: () => void;
@@ -1753,6 +1761,7 @@ function ThreadRow({
       setSaving(false);
     }
   };
+  const status = threadStatus(thread);
   return (
     <div
       className={"pf-thread " + (active === thread.id ? "pf-active" : "")}
@@ -1810,16 +1819,32 @@ function ThreadRow({
           }}
           title={thread.indicatorLabel ?? undefined}
         >
-          <span
-            className="pf-status"
-            aria-label={thread.indicatorLabel ?? undefined}
-          >
-            {thread.hasPendingInteraction
-              ? "◉"
-              : thread.indicator === "runtime"
-                ? "●"
-                : "·"}
-          </span>
+          {threadDisplay === "classic" && (
+            <span
+              className="pf-status"
+              aria-label={thread.indicatorLabel ?? undefined}
+            >
+              {thread.hasPendingInteraction
+                ? "◉"
+                : thread.indicator === "runtime"
+                  ? "●"
+                  : "·"}
+            </span>
+          )}
+          {threadDisplay === "provider-status" && (
+            <span
+              className="pf-provider"
+              data-provider-id={thread.providerId}
+              title={provider?.displayName ?? thread.providerId}
+              aria-label={provider?.displayName ?? thread.providerId}
+            >
+              <ProviderIcon
+                providerKind="agent"
+                provider={provider ?? { id: thread.providerId }}
+                className="pf-provider-icon"
+              />
+            </span>
+          )}
           {thread.isPinned && <Icon name="Pin" />}
           <span
             onDoubleClick={(event) => {
@@ -1827,12 +1852,18 @@ function ThreadRow({
               event.stopPropagation();
               beginRename();
             }}
-            className={
-              "pf-thread-title" + (thread.isUnread ? " pf-unread" : "")
-            }
+            className={"pf-thread-title" + (thread.isUnread ? " pf-unread" : "")}
           >
             {thread.title || thread.titleFallback}
           </span>
+          {threadDisplay === "provider-status" && (
+            <span
+              className={`pf-thread-state pf-state-${status}`}
+              title={thread.indicatorLabel ?? t(statusLabels[status])}
+            >
+              {t(statusLabels[status])}
+            </span>
+          )}
           {worksIn && (
             <span className="pf-host-badge" title={worksIn.path}>
               {worksIn.label}
@@ -2196,6 +2227,12 @@ function Tree(props: PluginThreadListProps) {
     }).catch((e) => alert(String(e)));
   };
   const { threads, projects, status } = experimental_useSidebarThreads();
+  const providersState = experimental_useProviders();
+  const providersById = new Map(
+    providersState.status === "ready"
+      ? providersState.providers.map((provider) => [provider.id, provider])
+      : [],
+  );
   const environmentKey = threads.map((t) => t.environment?.id ?? "").join("|");
   useEffect(refresh, [environmentKey, refresh]);
   const actions = experimental_useSidebarThreadActions();
@@ -2440,6 +2477,8 @@ function Tree(props: PluginThreadListProps) {
           <ThreadRow
             key={thread.id}
             thread={thread}
+            threadDisplay={listSettings.threadDisplay}
+            provider={providersById.get(thread.providerId)}
             active={props.activeThreadId}
             onNavigate={props.onNavigate}
             onMove={(chat) => {

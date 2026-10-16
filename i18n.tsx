@@ -39,7 +39,7 @@ export type Language = keyof typeof languages;
 const key = "project-folders:language";
 function preference(): string {
   try {
-    return localStorage.getItem(key) || "en";
+    return localStorage.getItem(key) || (document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en");
   } catch {
     return "en";
   }

@@ -84,13 +84,17 @@ describe("chat list order", () => {
       sort: "title",
       limit: 5,
       autoCollapseInactive: true,
+      threadDisplay: "classic",
     });
     expect(
-      parseSettings('{"sort":"activity","limit":10,"autoCollapseInactive":false}'),
+      parseSettings(
+        '{"sort":"activity","limit":10,"autoCollapseInactive":false}',
+      ),
     ).toEqual({
       sort: "activity",
       limit: 10,
       autoCollapseInactive: false,
+      threadDisplay: "classic",
     });
   });
 });

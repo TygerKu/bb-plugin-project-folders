@@ -75,6 +75,7 @@ export const prefsSchema = z.object({
     inactiveUnit: z.enum(["hours", "days"]),
     hideIdleHours: z.number().min(0).max(720),
     boldUnread: z.boolean(),
+    threadDisplay: z.enum(["classic", "provider-status"]),
   }),
   view: z.object({
     density: z.enum(["comfortable", "compact"]),
@@ -105,6 +106,7 @@ export const defaultPrefs: Prefs = {
     inactiveUnit: "hours",
     hideIdleHours: 48,
     boldUnread: true,
+    threadDisplay: "classic",
   },
   view: { density: "comfortable", indent: 8, showHidden: false },
   appearance: {
