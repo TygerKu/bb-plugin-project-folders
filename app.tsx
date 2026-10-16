@@ -110,6 +110,10 @@ import { Input } from "./components/ui/input";
 import { Icon } from "./components/ui/icon";
 import { RepoLink } from "./repo-link";
 import { statusLabels, threadStatus } from "./thread-status";
+import {
+  sidebarTreeLayout, TREE_ROW_PADDING, TREE_CONTENT_PADDING,
+  TREE_CHEVRON_WIDTH, TREE_LABEL_GAP, TREE_MARKER_WIDTH,
+} from "./tree-layout";
 import "./style.css";
 type Target = { projectId: string; folderId: string | null };
 type Modal = {
@@ -2452,8 +2456,17 @@ function Tree(props: PluginThreadListProps) {
     (r, i) =>
       data.roots.findIndex((x) => x.projectId === r.projectId) === i &&
       (showHidden || !isHidden(r, true)),
-
   );
+  const treeLayout = sidebarTreeLayout(prefs.view.indent);
+  // Inline geometry also wins over themes that restyle the legacy child margins.
+  const childrenStyle: React.CSSProperties = {
+    marginInlineStart: treeLayout.guideOffset,
+    marginInlineEnd: 0,
+    paddingInlineStart: treeLayout.childPadding,
+    paddingInlineEnd: 0,
+    borderInlineStartWidth: 1,
+    borderInlineEndWidth: 0,
+  };
   const rows = (
     ts: readonly PluginSidebarThread[],
     group: string,
@@ -2474,7 +2487,10 @@ function Tree(props: PluginThreadListProps) {
       visibleChats(sorted, { ...listOpts, expanded: false }).length <
       sorted.length;
     return (
-      <>
+      <div
+        className="pf-chats"
+        style={{ marginInlineStart: treeLayout.chatOffset }}
+      >
         {shown.map((thread) => (
           <ThreadRow
             key={thread.id}
@@ -2516,7 +2532,7 @@ function Tree(props: PluginThreadListProps) {
               : `${t("Показать все")} (${sorted.length})`}
           </button>
         )}
-      </>
+      </div>
     );
   };
   const deleteGroup = async (g: Folder) => {
@@ -2681,7 +2697,7 @@ function Tree(props: PluginThreadListProps) {
           }
         />
         {!folderClosed && (
-          <div className="pf-children">
+          <div className="pf-children" style={childrenStyle}>
             {children.map((c) => node(c, false))}
             {rows(ts, f.id, folderLook.sort, folderLook.limit)}
           </div>
@@ -2694,7 +2710,14 @@ function Tree(props: PluginThreadListProps) {
       className={
         "pf pf-tree" + (prefs.view.density === "compact" ? " pf-compact" : "")
       }
-      style={{ "--pf-indent": `${prefs.view.indent}px` } as React.CSSProperties}
+      style={{
+        "--pf-indent": `${prefs.view.indent}px`,
+        "--pf-tree-row-padding": `${TREE_ROW_PADDING}px`,
+        "--pf-tree-content-padding": `${TREE_CONTENT_PADDING}px`,
+        "--pf-tree-chevron-width": `${TREE_CHEVRON_WIDTH}px`,
+        "--pf-tree-label-gap": `${TREE_LABEL_GAP}px`,
+        "--pf-tree-marker-width": `${TREE_MARKER_WIDTH}px`,
+      } as React.CSSProperties}
       data-bb-ru-skip=""
       dir={direction()}
     >
@@ -2727,7 +2750,7 @@ function Tree(props: PluginThreadListProps) {
                   className={"pf-label" + (projectUnread ? " pf-unread" : "")}
                   onClick={() => toggle(p.id, projectClosed)}
                 >
-                  <Icon name={projectClosed ? "ChevronRight" : "ChevronDown"} />
+                  <Icon className="pf-chevron" name={projectClosed ? "ChevronRight" : "ChevronDown"} />
                   <span>{p.isPersonal ? t("Без проекта") : p.name}</span>
                 </button>
                 <button
@@ -2745,7 +2768,7 @@ function Tree(props: PluginThreadListProps) {
                 </button>
               </div>
               {!projectClosed && (
-                <div className="pf-children">
+                <div className="pf-children" style={childrenStyle}>
                   {rows(
                     threads.filter((t) => t.projectId === p.id),
                     p.id,

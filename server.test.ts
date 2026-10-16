@@ -378,6 +378,7 @@ describe("shared preferences", () => {
       expect(first.stored).toBe(false);
       const prefs = (first as unknown as { prefs: Record<string, any> }).prefs;
       prefs.chatList.limit = 25;
+      prefs.chatList.threadDisplay = "provider-status";
       prefs.projects.startingFolder = "/work/projects";
       prefs.appearance.levels.project = { icon: "emoji:🚀", color: "blue" };
       await call("prefs_save", { prefs });
@@ -418,6 +419,7 @@ describe("shared preferences", () => {
         prefs: typeof prefs;
       };
       expect(reloaded.prefs.projects.startingFolder).toBe("/work/projects");
+      expect(reloaded.prefs.chatList.threadDisplay).toBe("provider-status");
     } finally {
       await h.harness.lifecycle.dispose();
     }

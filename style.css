@@ -2053,3 +2053,40 @@
 .pf-state-waiting { color: var(--pk-warning, var(--warning-text)); }
 .pf-state-failed { color: var(--pk-danger, var(--destructive)); }
 .pf-state-unread { color: var(--pk-success, var(--success)); }
+
+/* Keep tree geometry independent of theme child-margin overrides. The chat
+   container reserves the parent's chevron column, including Show all. */
+.pf-tree .pf-heading,
+.pf-tree .pf-thread {
+  padding-inline: var(--pf-tree-row-padding, 4px) 1px;
+}
+.pf-tree .pf-label {
+  gap: var(--pf-tree-label-gap, 7px);
+  padding-inline: var(--pf-tree-content-padding, 2px);
+}
+.pf-tree .pf-label .pf-chevron {
+  width: var(--pf-tree-chevron-width, 12px);
+  height: var(--pf-tree-chevron-width, 12px);
+}
+.pf-tree .pf-children {
+  border-inline-start-style: solid;
+  border-inline-start-color: var(--pk-border, var(--border));
+}
+.pf-tree .pf-thread a {
+  padding-inline: var(--pf-tree-content-padding, 2px);
+}
+.pf-tree .pf-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pf-tree-marker-width, 18px);
+}
+.pf-tree .pf-show-more {
+  padding-inline-start: calc(var(--pf-tree-row-padding, 4px) + var(--pf-tree-content-padding, 2px));
+}
+.pf-chats { min-width: 0; }
+
+.pf-tree .pf-show-more svg {
+  width: var(--pf-tree-marker-width, 18px);
+  flex-basis: var(--pf-tree-marker-width, 18px);
+}

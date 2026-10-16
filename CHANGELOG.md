@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.3 — Correct chat nesting at every tree depth
+
+- Place project, section and nested-section chats one full level below their parent. Guides align with parent chevrons, and Show all shares the chat marker/text column.
+- Use shared tree geometry so Classic and Provider and status keep the same indentation in Pokecut and Default, including narrow sidebars and zero-indent settings.
+- Add regression coverage for tree geometry, root/section/nested chat containers and preserving an enabled provider/status preference across plugin reloads. Existing saved preferences remain authoritative; Classic is still the default for users who have not enabled the option.
+
+Thank you @TygerKu, @MoYiha, @rigerc and @victorlitvinenko for your contributions to Projects & Sections!
+
 ## 0.7.2 — Responsive settings with readable explanations
 
 - Wrap settings controls below their labels when the available pane is narrow, keeping long explanations and Russian labels readable. Verified in the live BB interface at 900px and 390px viewport widths, with Pokecut and Default fallback colors.
