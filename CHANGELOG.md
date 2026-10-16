@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 — Readable status pills in narrow sidebars
+
+- Keep optional chat status pills readable beside long chat titles; only the title shrinks. Found and checked in the live BB sidebar after 0.7.0.
+- Includes the community features from 0.7.0: manual project order, optional native provider icons, new-project starting folder and safer GitLab/Bitbucket links.
+
+Thank you @TygerKu, @MoYiha, @rigerc and @victorlitvinenko for your contributions to Projects & Sections!
+
 ## 0.7.0 — Community contributions and safer repository links
 
 - Preserve manually configured project order while activity sorting reorders sections (#3, @TygerKu).

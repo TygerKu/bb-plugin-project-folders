@@ -2034,7 +2034,7 @@
 }
 .pf-provider-icon { width: 16px; height: 16px; }
 .pf-thread-state {
-  flex: 0 1 auto;
+  flex: none;
   min-width: 0;
   max-width: 90px;
   overflow: hidden;
