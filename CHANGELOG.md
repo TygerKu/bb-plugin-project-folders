@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — Community contributions and safer repository links
+
+- Preserve manually configured project order while activity sorting reorders sections (#3, @TygerKu).
+- Add opt-in provider icons through BB’s native renderer and theme-aware chat status pills; Classic remains the default (#2, @TygerKu; closes #1, @MoYiha). Follow the BB interface language when no plugin language override is saved.
+- Add a starting folder setting for new projects, with same-device home fallback, explicit warnings and protection against stale device responses (#5, @rigerc).
+- Add GitLab.com subgroup and Bitbucket.org repository links and a visible lock badge (#4, @victorlitvinenko). Visibility checks are now off by default, including on existing installations. Anonymous checks send only the canonical repository identity; credentials and local paths are excluded. Redirects are rejected, requests time out after four seconds, and results are cached across devices for 30 minutes with a bounded cache and four concurrent requests. A 404 is labelled “Private or unavailable”.
+- Retain the legacy GitHub host method and folder fields for compatibility. Section removal, move semantics and dependencies are unchanged.
+
+Thank you @TygerKu, @MoYiha, @rigerc and @victorlitvinenko for contributing fixes, ideas and features to Projects & Sections!
+
 ## 0.6.37 — Mark all as read and a shorter section menu
 
 - Section, group and project-root menus gain «Прочитать всё»: it marks every unread chat in the subtree (the whole project from the root), skips archived chats and chats waiting for a question or approval, and is hidden when nothing in the subtree is unread.
