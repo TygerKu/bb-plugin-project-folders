@@ -1,4 +1,5 @@
 import { editFolder } from "./folder-files";
+import { repoRemotes } from "./repo-remote";
 import { githubRemotes } from "./github-remote";
 import { sessionInventory } from "./session-inventory";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
@@ -12,6 +13,7 @@ export default experimental_defineHostEntry({
     move: moveDirectory,
     link: linkDirectory,
     github_remotes: githubRemotes,
+    repo_remotes: repoRemotes,
     session_inventory: sessionInventory,
   },
 });

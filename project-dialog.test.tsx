@@ -25,7 +25,7 @@ vi.mock("@get-bb/plugin-sdk/app", async (original) => ({
 }));
 vi.mock("./prefs-store", () => ({
   usePrefs: () => ({
-    prefs: { ...defaultPrefs, projects: { startingFolder: state.folder } },
+    prefs: { ...defaultPrefs, projects: { ...defaultPrefs.projects, startingFolder: state.folder } },
     loaded: state.loaded,
     items: {},
     saveItem: vi.fn(),
@@ -218,7 +218,7 @@ it("shares the Projects setting between the settings rail and pane and trims sav
   await waitFor(() =>
     expect(state.savePrefs).toHaveBeenCalledWith({
       ...defaultPrefs,
-      projects: { startingFolder: "/work/My projects" },
+      projects: { ...defaultPrefs.projects, startingFolder: "/work/My projects" },
     }),
   );
   view.unmount();

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { rpcContract } from "./server";
 import { LanguagePicker, t } from "./i18n";
+import { Input } from "./components/ui/input";
 import { Icon } from "./components/ui/icon";
 import { ChatSettings } from "./chat-settings";
 import { AppearanceSettings, TransferSettings } from "./appearance";
@@ -135,7 +136,7 @@ export function ProjectSettings() {
         )}
         htmlFor="pf-starting-folder"
       >
-        <input
+        <Input
           id="pf-starting-folder"
           className="pf-sinput"
           value={draft}
@@ -154,6 +155,20 @@ export function ProjectSettings() {
             }
           }}
         />
+      </SettingRow>
+      <SettingRow
+        label={t("Проверять видимость репозиториев")}
+        hint={t("Выключено по умолчанию. Анонимно отправляет только владельца и имя репозитория в API GitHub, GitLab или Bitbucket для значка замка. Кеш — 30 минут; локальные пути и учётные данные не отправляются.")}
+        htmlFor="pf-repo-visibility"
+      >
+        <Switch id="pf-repo-visibility" checked={prefs.projects.checkRepoVisibility} label={t("Проверять видимость репозиториев")}
+          onChange={async (checkRepoVisibility) => {
+            if (!loaded || busy) return;
+            setBusy(true); setError("");
+            try { await savePrefs({ ...prefs, projects: { ...prefs.projects, checkRepoVisibility } }); }
+            catch (e) { setError(String(e)); }
+            finally { setBusy(false); }
+          }} />
       </SettingRow>
       {error && (
         <p

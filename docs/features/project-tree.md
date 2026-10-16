@@ -137,3 +137,13 @@ The server forwards directory edits to the selected connected host; host validat
 - [Section archive and restore](archive-and-restore.md)
 - [Chat list and activity](chat-list.md)
 - [Projects & Sections — Overview](../overview.md)
+
+## Repository links and privacy
+
+Sections inside GitHub, GitLab.com (including subgroups) and Bitbucket.org checkouts show a repository link. The device reads the nearest Git `origin` locally (up to 16 ancestors), strips credentials and validates a fixed list of public hosts. Self-hosted repositories remain unmarked. No Git command is executed. Local remote metadata is cached for six minutes; disconnected devices are skipped and failed reads back off for the same period.
+
+**Projects → Check repository visibility** is off by default, including for existing installations. Links work without network visibility checks. Enabling it allows the BB server to send an anonymous GET containing only the canonical repository owner/group and repository name to `api.github.com/repos/…`, `gitlab.com/api/v4/projects/…` or `api.bitbucket.org/2.0/repositories/…`. GitLab subgroup paths are encoded as one project identifier. Local folder paths, source credentials, cookies, authorization and referrers are never sent. Redirects are rejected and each request has a four-second deadline.
+
+Visibility results, including failures, are shared across devices by URL for 30 minutes in a bounded in-memory cache (512 entries, four requests at once). Disabling the option or unloading the plugin cancels pending requests and clears this cache. A 404 shows a lock labelled **Private or unavailable repository**: anonymous access cannot distinguish a private repository from a removed one. Authentication failures, rate limits, redirects, timeouts and other errors leave visibility unknown.
+
+The host method `repo_remotes` and folder fields `repoUrl`, `repoProvider`, `repoPrivate` support all three providers. The earlier `github_remotes`, `githubUrl` and `githubPrivate` remain available for compatibility; the GitHub fields are null for other providers.

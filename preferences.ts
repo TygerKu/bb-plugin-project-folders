@@ -71,8 +71,8 @@ export const startingFolderSchema = z
   .max(4096)
   .regex(/^(?:|\/[^\x00-\x1f\x7f]*)(?![\s\S])/);
 export const prefsSchema = z.object({
-  projects: z.object({ startingFolder: startingFolderSchema }).default({
-    startingFolder: "",
+  projects: z.object({ startingFolder: startingFolderSchema, checkRepoVisibility: z.boolean().default(false) }).default({
+    startingFolder: "", checkRepoVisibility: false,
   }),
   chatList: z.object({
     sort: z.enum(CHAT_SORTS),
@@ -105,7 +105,7 @@ export type Prefs = z.infer<typeof prefsSchema>;
 export type ItemStyles = Record<string, ItemStyle>;
 
 export const defaultPrefs: Prefs = {
-  projects: { startingFolder: "" },
+  projects: { startingFolder: "", checkRepoVisibility: false },
   chatList: {
     sort: "activity",
     limit: 10,

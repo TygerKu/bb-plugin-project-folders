@@ -2375,7 +2375,7 @@ describe("githubUrl on list", () => {
       agentSkillIds: ["project-folders"],
       experimental_hostEntry: true,
       experimental_callHostRpc: async (call) => {
-        if (call.method !== "github_remotes")
+        if (call.method !== "repo_remotes")
           throw new Error(`unexpected ${call.method}`);
         const paths = (call.input as { paths: string[] }).paths;
         calls.push({ method: call.method, paths });

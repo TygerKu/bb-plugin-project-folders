@@ -1,4 +1,5 @@
-import { githubPrivateForUrl } from "./github-remote";
+import { parseRepoRemote, repoProviderForUrl } from "./repo-remote";
+import { createRepoVisibilityCache } from "./repo-visibility";
 import { moveHostContract } from "./move-contract";
 import { makeThreadMoves, RELOCATE_MARKER } from "./thread-move";
 import { handleMessageDispatch } from "./dispatch-hook";
@@ -97,6 +98,10 @@ const folderSchema = z.object({
   sort: z.number().optional(),
   /** A group only arranges the tree: it has no folder, chats or rules. */
   kind: z.enum(["folder", "group"]).optional(),
+  repoUrl: z.string().nullable().optional(),
+  repoProvider: z.enum(["github", "gitlab", "bitbucket"]).nullable().optional(),
+  repoPrivate: z.boolean().nullable().optional(),
+  /** Legacy GitHub-only aliases retained for integrations. */
   githubUrl: z.string().nullable().optional(),
   githubPrivate: z.boolean().nullable().optional(),
   /** Folder on each device; the home host+path stay on the row. */
@@ -913,24 +918,38 @@ export default async function plugin(bb: BbPluginApi) {
   const forgetGithub = (hostId: string, folderPath: string) => {
     githubCache.delete(githubCacheKey(hostId, folderPath));
   };
+  // Legacy internal names and RPC fields remain compatible with older integrations.
+  const visibility = createRepoVisibilityCache();
+  bb.onDispose(() => { visibility.dispose(); });
+  const repoChecksEnabled = () => {
+    const row = db.prepare("SELECT data FROM preferences WHERE key='ui'").get() as { data: string } | undefined;
+    return parsePrefs(row ? safeJson(row.data) : null).projects.checkRepoVisibility;
+  };
+  const syncRepoVisibility = () => {
+    if (visibility.setEnabled(repoChecksEnabled())) {
+      for (const [key, hit] of githubCache) githubCache.set(key, { ...hit, private: null, at: 0 });
+    }
+  };
   const withGithubUrl = (f: Folder): Folder => {
-    if (isGroup(f)) return { ...f, githubUrl: null, githubPrivate: null };
-    const hit = githubCache.get(githubCacheKey(f.hostId, f.path));
-    return {
-      ...f,
-      githubUrl: hit?.url ?? null,
-      githubPrivate: hit?.url ? (hit.private ?? null) : null,
-    };
+    const hit = isGroup(f) ? undefined : githubCache.get(githubCacheKey(f.hostId, f.path));
+    const url = hit?.url ?? null;
+    const provider = url ? repoProviderForUrl(url) : null;
+    const hidden = url && repoChecksEnabled() ? hit?.private ?? null : null;
+    return { ...f, repoUrl: url, repoProvider: provider, repoPrivate: hidden,
+      githubUrl: provider === "github" ? url : null,
+      githubPrivate: provider === "github" ? hidden : null };
   };
   const refreshGithubHost = async (hostId: string, paths: string[]) => {
     let dirty = false;
     try {
       const result = await bb.hosts
         .experimental_client({ contract: moveHostContract })
-        .call("github_remotes", { paths }, { hostId });
+        .call("repo_remotes", { paths }, { hostId });
       const now = Date.now();
       const seen = new Set<string>();
-      for (const row of result.remotes) {
+      for (const raw of result.remotes) {
+        if (!paths.includes(raw.path)) continue;
+        const row = { path: raw.path, url: parseRepoRemote(raw.url) };
         seen.add(row.path);
         const key = githubCacheKey(hostId, row.path);
         const prev = githubCache.get(key);
@@ -948,32 +967,31 @@ export default async function plugin(bb: BbPluginApi) {
         githubCache.set(key, { url: null, private: null, at: now });
         if (prev?.url) dirty = true;
       }
-      if (!process.env.VITEST) {
-        const urls = [
-          ...new Set(
-            [...githubCache.values()]
-              .map((hit) => hit.url)
-              .filter((url): url is string => !!url),
-          ),
-        ];
-        await Promise.all(
-          urls.map(async (url) => {
-            const hidden = await githubPrivateForUrl(url);
-            if (hidden == null) return;
-            for (const [key, hit] of githubCache) {
-              if (hit.url !== url || hit.private === hidden) continue;
-              githubCache.set(key, { ...hit, private: hidden });
-              dirty = true;
-            }
-          }),
-        );
+      if (repoChecksEnabled()) {
+        const urls = [...new Set(result.remotes.filter((r) => paths.includes(r.path))
+          .map((r) => parseRepoRemote(r.url)).filter((url): url is string => !!url))];
+        await Promise.all(urls.map(async (url) => {
+          const hidden = await visibility.check(url);
+          if (!repoChecksEnabled()) return;
+          for (const [key, hit] of githubCache) {
+            if (hit.url !== url || hit.private === hidden) continue;
+            githubCache.set(key, { ...hit, private: hidden });
+            dirty = true;
+          }
+        }));
       }
     } catch {
-      /* list must stay available when a host read fails */
+      // Back off failed host reads too; keep list available and previous links intact.
+      for (const folderPath of paths) {
+        const key = githubCacheKey(hostId, folderPath);
+        const prev = githubCache.get(key);
+        githubCache.set(key, { url: prev?.url ?? null, private: prev?.private ?? null, at: Date.now() });
+      }
     }
     return dirty;
   };
   const scheduleGithubRefresh = (connected: Set<string>, items: Folder[]) => {
+    syncRepoVisibility();
     const byHost = new Map<string, string[]>();
     const now = Date.now();
     for (const f of items) {
@@ -987,7 +1005,7 @@ export default async function plugin(bb: BbPluginApi) {
     for (const [hostId, paths] of byHost) {
       if (!paths.length || githubRefreshing.has(hostId)) continue;
       githubRefreshing.add(hostId);
-      void refreshGithubHost(hostId, paths)
+      void refreshGithubHost(hostId, paths.slice(0, 128))
         .then((dirty) => {
           if (dirty) notifyGithubChange();
         })
@@ -3466,7 +3484,9 @@ export default async function plugin(bb: BbPluginApi) {
             );
         }
       })();
+      syncRepoVisibility();
       bb.realtime.publish("prefs", {});
+      changed();
       return { ok: true as const };
     },
     item_style_save: ({ key, style }) => {
@@ -3490,6 +3510,7 @@ export default async function plugin(bb: BbPluginApi) {
     backup_import: ({ backup, mode }) => {
       const parsed = parseBackup(backup);
       const counts = importTables(db, parsed.tables, mode ?? "replace");
+      syncRepoVisibility();
       const agentsRow = db
         .prepare("SELECT data FROM preferences WHERE key='agents'")
         .get() as { data: string } | undefined;

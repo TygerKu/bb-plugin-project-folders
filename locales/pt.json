@@ -54,6 +54,12 @@
   "Открыть репозиторий GitHub": "Abrir o repositório do GitHub",
   "Открыть приватный репозиторий GitHub": "Abrir o repositório privado do GitHub",
   "Приватный репозиторий GitHub": "Repositório privado do GitHub",
+  "Открыть репозиторий GitLab": "Abrir o repositório do GitLab",
+  "Открыть приватный репозиторий GitLab": "Abrir o repositório privado do GitLab",
+  "Приватный репозиторий GitLab": "Repositório privado do GitLab",
+  "Открыть репозиторий Bitbucket": "Abrir o repositório do Bitbucket",
+  "Открыть приватный репозиторий Bitbucket": "Abrir o repositório privado do Bitbucket",
+  "Приватный репозиторий Bitbucket": "Repositório privado do Bitbucket",
   "Без проекта": "Sem projeto",
   "Новый чат без проекта": "Nova conversa sem projeto",
   "Управление разделами": "Gerenciar seções",
@@ -428,5 +434,9 @@
   "Нужно ваше внимание": "Precisa da sua atenção",
   "Работает": "Trabalhando",
   "Непрочитано": "Não lido",
-  "Неактивен": "Inativo"
+  "Неактивен": "Inativo",
+  "Проверять видимость репозиториев": "Verificar visibilidade dos repositórios",
+  "Выключено по умолчанию. Анонимно отправляет только владельца и имя репозитория в API GitHub, GitLab или Bitbucket для значка замка. Кеш — 30 минут; локальные пути и учётные данные не отправляются.": "Desativado por padrão. Envia anonimamente apenas o proprietário e o nome do repositório à API do GitHub, GitLab ou Bitbucket para o cadeado. Cache de 30 minutos; não envia caminhos locais nem credenciais.",
+  "Приватный или недоступный репозиторий": "Repositório privado ou indisponível",
+  "Открыть приватный или недоступный репозиторий": "Abrir repositório privado ou indisponível"
 }

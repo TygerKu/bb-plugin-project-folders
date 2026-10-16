@@ -28,7 +28,7 @@ The plugin replaces a flat thread listing with project/section rows and per-plac
 3. When a list is collapsed, the filter keeps pinned, unread, active, busy or recent chats and applies the configured per-list limit (`chat-list.ts:146-177`).
 4. Activity sorting uses the latest of update, attention and creation timestamps, while treating an update within two seconds of `lastReadAt` as a read-only event (`chat-list.ts:180-199`).
 5. Sections can auto-collapse based on activity age; manually stored collapse choices override automatic behavior (`chat-list.ts:335-413`).
-6. When activity ordering is enabled, sibling projects or sections rank by unread reply, then busy work, then latest conversation activity; manual order breaks ties. The setting off keeps saved order (`chat-list.ts:415-504`, `app.tsx:2411-2425`).
+6. When activity ordering is enabled, sibling sections rank by unread reply, then busy work, then latest conversation activity; manual order breaks ties. The setting off keeps saved order (`chat-list.ts:415-504`, `app.tsx:2411-2425`).
 
 ## Modes
 
@@ -38,7 +38,7 @@ The plugin replaces a flat thread listing with project/section rows and per-plac
 | Collapsed list | limit 1–100 | Maximum visible chats after filtering |
 | Idle hiding | 0–720 hours | Age cutoff; pinned, unread, active and busy chats remain visible |
 | Section auto-collapse | on/off, threshold 0.25–720 hours | Collapse inactive sections; default is two hours |
-| Section ordering | activity / manual | Activity mode ranks unread, busy, then recent sections; manual mode uses saved order (`chat-settings.tsx:98-110`, `chat-list.ts:415-504`) |
+| Section ordering | activity / manual | Activity mode ranks unread, busy, then recent sections; manual mode uses saved order; projects always keep their manually configured order (`chat-settings.tsx:98-110`, `chat-list.ts:415-504`) |
 
 Values and defaults come from `preferences.ts:68-119`; collapsed-list sorting and exclusions come from `chat-list.ts:14-29`, `chat-list.ts:146-177`. Density, indentation and hidden-item display are covered by [Appearance and preferences](appearance-settings.md).
 
@@ -79,3 +79,7 @@ Values and defaults come from `preferences.ts:68-119`; collapsed-list sorting an
 ## Referenced by
 
 - [Project and section tree](project-tree.md)
+
+## Optional provider and status indicators
+
+**Chat list → Thread status display → Provider and status** shows each chat’s provider using BB’s native provider icon renderer, followed by a theme-aware status pill. Classic remains the default, including for older saved settings. Provider renderers registered by other plugins are respected, with BB’s fallback for unknown providers. Failure and input requests take priority over working/unread/idle indicators. No brand palette or copied logo assets are bundled.

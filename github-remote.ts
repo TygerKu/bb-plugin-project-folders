@@ -1,3 +1,4 @@
+import { repoPrivateForUrl } from "./repo-remote";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -102,27 +103,7 @@ export async function githubUrlForPath(folderPath: string): Promise<string | nul
 export async function githubPrivateForUrl(
   url: string,
 ): Promise<boolean | null> {
-  const parsed = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)$/i);
-  if (!parsed?.[1] || !parsed[2]) return null;
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${parsed[1]}/${parsed[2]}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "bb-plugin-project-folders",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        signal: AbortSignal.timeout(4000),
-      },
-    );
-    if (res.status === 200) return false;
-    if (res.status === 404) return true;
-    return null;
-  } catch {
-    return null;
-  }
+  return url.startsWith("https://github.com/") ? repoPrivateForUrl(url) : null;
 }
 
 export async function githubRemotes(input: { paths: string[] }): Promise<{

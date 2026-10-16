@@ -37,18 +37,22 @@
   width: 18px;
   height: 18px;
 }
-.pf-github {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
+.pf-repo { position: relative; width: 14px; height: 14px; border-radius: 4px; }
+.pf-repo svg { width: 14px; height: 14px; }
+.pf-repo .pf-repo-lock {
+  position: absolute; inset-inline-end: -4px; bottom: -3px;
+  display: inline-flex; padding: 1px; border-radius: 3px;
+  background: var(--pk-surface, var(--sidebar, var(--background)));
+  color: var(--pk-text, var(--foreground)); pointer-events: none;
 }
-.pf-github svg {
-  width: 14px;
-  height: 14px;
-}
-.pf-github-private,
-.pf-github-private svg {
-  color: #111;
+.pf-repo .pf-repo-lock svg { width: 8px; height: 8px; }
+.pf-tooltip {
+  z-index: 1000; max-width: min(360px, calc(100vw - 16px)); padding: 5px 9px;
+  border: 1px solid var(--pk-border, var(--border)); border-radius: var(--pk-radius-control, 6px);
+  background: var(--pk-surface, var(--popover, var(--background)));
+  color: var(--pk-text, var(--popover-foreground, var(--foreground)));
+  box-shadow: var(--pk-shadow-raised, 0 8px 24px color-mix(in srgb, var(--foreground) 16%, transparent));
+  font-size: 12px; line-height: 1.4; overflow-wrap: anywhere;
 }
 .pf-label {
   display: flex;

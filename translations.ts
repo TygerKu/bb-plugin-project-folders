@@ -1,5 +1,10 @@
 // English fallback and Russian translation catalog. User content is never translated.
 export const english = {
+  "Проверять видимость репозиториев": "Check repository visibility",
+  "Выключено по умолчанию. Анонимно отправляет только владельца и имя репозитория в API GitHub, GitLab или Bitbucket для значка замка. Кеш — 30 минут; локальные пути и учётные данные не отправляются.": "Off by default. Sends only the repository owner and name anonymously to the GitHub, GitLab or Bitbucket API for a lock badge. Cached for 30 minutes; local paths and credentials are never sent.",
+  "Приватный или недоступный репозиторий": "Private or unavailable repository",
+  "Открыть приватный или недоступный репозиторий": "Open private or unavailable repository",
+
   "Начальная папка для новых проектов.": "Starting folder for new projects.",
   "Новые проекты": "New projects",
   "Начальная папка нового проекта": "New project starting folder",
@@ -102,6 +107,12 @@ export const english = {
   "Открыть репозиторий GitHub": "Open GitHub repository",
   "Открыть приватный репозиторий GitHub": "Open private GitHub repository",
   "Приватный репозиторий GitHub": "Private GitHub repository",
+  "Открыть репозиторий GitLab": "Open GitLab repository",
+  "Открыть приватный репозиторий GitLab": "Open private GitLab repository",
+  "Приватный репозиторий GitLab": "Private GitLab repository",
+  "Открыть репозиторий Bitbucket": "Open Bitbucket repository",
+  "Открыть приватный репозиторий Bitbucket": "Open private Bitbucket repository",
+  "Приватный репозиторий Bitbucket": "Private Bitbucket repository",
   "Без проекта": "No project",
   "Новый чат без проекта": "New chat without a project",
   "Управление разделами": "Manage sections",

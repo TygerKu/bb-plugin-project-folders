@@ -43,7 +43,7 @@ describe("preferences", () => {
   it("preserves the starting folder across export and import, rejecting invalid paths", () => {
     const prefs = {
       ...defaultPrefs,
-      projects: { startingFolder: "/work/My projects" },
+      projects: { ...defaultPrefs.projects, startingFolder: "/work/My projects" },
     };
     expect(parsePrefs(prefs)).toEqual(prefs);
     expect(parseImport(JSON.stringify(exportPayload(prefs, {}))).prefs).toEqual(
