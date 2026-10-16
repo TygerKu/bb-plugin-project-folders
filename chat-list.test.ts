@@ -499,6 +499,30 @@ describe("auto-collapsing inactive sections", () => {
     ).toBe(true);
   });
 
+  it("keeps manually reordered projects in order when sorting sections by activity", () => {
+    const projects = [
+      { id: "p2", projectId: "p2", parentId: null, sort: 0 },
+      { id: "p1", projectId: "p1", parentId: null, sort: 1 },
+    ];
+    const threads = [
+      {
+        id: "unread-in-p1",
+        projectId: "p1",
+        environment: { id: "env-p1" },
+        isUnread: true,
+      },
+    ];
+    expect(
+      sortFoldersByActivity(projects, {
+        enabled: true,
+        root: true,
+        folders: [],
+        bindings: {},
+        threads,
+      }).map((project) => project.projectId),
+    ).toEqual(["p2", "p1"]);
+  });
+
   it("sorts sibling sections by unread reply, then busy, then activity", () => {
     const now = 50_000_000;
     const siblings = [

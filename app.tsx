@@ -2409,20 +2409,11 @@ function Tree(props: PluginThreadListProps) {
     props.onNavigate();
   };
   /** One entry per project; per-device copies are opened from the card or composer machine control. */
-  const visibleRoots = sortFoldersByActivity(
-    data.roots.filter(
-      (r, i) =>
-        data.roots.findIndex((x) => x.projectId === r.projectId) === i &&
-        (showHidden || !isHidden(r, true)),
-    ),
-    {
-      enabled: listSettings.sortSectionsByActivity,
-      root: true,
-      folders: data.folders,
-      bindings: data.bindings,
-      places: data.places,
-      threads,
-    },
+  const visibleRoots = data.roots.filter(
+    (r, i) =>
+      data.roots.findIndex((x) => x.projectId === r.projectId) === i &&
+      (showHidden || !isHidden(r, true)),
+
   );
   const rows = (
     ts: readonly PluginSidebarThread[],
