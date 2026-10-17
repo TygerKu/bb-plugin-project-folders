@@ -2,7 +2,7 @@
 title: API and commands
 type: component
 created: 2026-09-27
-updated: 2026-10-13
+updated: 2026-10-17
 status: active
 confidence: medium
 tags: [api, rpc, cli, host]
@@ -23,16 +23,17 @@ sources:
   - cache-keepalive.ts
   - backup.ts
   - github-remote.ts
+  - repo-remote.ts
   - session-inventory.ts
   - package.json
 ---
 # API and commands
 
-TL;DR: The plugin exposes typed BB plugin RPC, a read-only section-list RPC for other plugins, BB host operations and a `bb project-folders` CLI command group; it does not define standalone HTTP routes (`server.ts:187-623`, `server.ts:3540-3564`, `server.ts:3741-4042`).
+TL;DR: The plugin exposes typed BB plugin RPC, a read-only section-list RPC for other plugins, BB host operations and a `bb project-folders` CLI command group; it does not define standalone HTTP routes (`server.ts:166-623`, `server.ts:3537-3560`, `server.ts:3741-4042`).
 
 ## How it works
 
-1. The server defines the main plugin methods in `rpcContract` and registers their handlers with BB. Its `list` operation returns folders, project roots, environment bindings, manual placements, export errors and connected machine identities (`server.ts:284-300`, `server.ts:2444-2512`). A separate discoverable, read-only `sections_list` contract returns section metadata to other plugins and accepts an optional project ID (`server.ts:170-185`, `server.ts:3541-3564`).
+1. The server defines the main plugin methods in `rpcContract` and registers their handlers with BB. Its `list` operation returns folders, project roots, environment bindings, manual placements, export errors and connected machine identities (`server.ts:2451-2511`). A separately registered, discoverable, read-only `sections_list` contract returns section metadata to other plugins and accepts an optional project ID (`server.ts:148-165`, `server.ts:3537-3560`).
 2. Plugin UI surfaces call those RPC operations through the BB SDK (`app.tsx:60-70`, `composer-chip.tsx:154-180`).
 3. Server handlers and move coordinators dispatch device-specific filesystem, remote and inventory work through `moveHostContract`, with a target host ID in BB call options (`server.ts:878-880`, `server.ts:2439-2441`, `project-move.ts:172-175`, `session-policy-server.ts:221-224`, `host.ts:5-16`).
 4. BB registers the CLI command group `project-folders`; its handler validates args and calls the same domain operations (`server.ts:3741-3850`, `server.ts:3853-4042`).
@@ -129,7 +130,7 @@ Contract schemas: `server.ts:574-623`.
 |---|---|---|---|---|
 | BB RPC | `sections_list` | Other plugins | Return section ID, project ID, parent, name, path, host and kind; optional project filter | BB plugin RPC; read-only |
 
-The separate contract is declared and registered in `server.ts:170-185`, `server.ts:3541-3564`.
+The separate contract is declared and registered in `server.ts:148-165`, `server.ts:3537-3560`.
 
 ## Host operations
 
@@ -137,32 +138,19 @@ The separate contract is declared and registered in `server.ts:170-185`, `server
 |---|---|---|---|---|---|
 | BB host contract | `folder_edit` | Server folder browser RPC | Create/delete an empty directory | BB host dispatch to connected device | `host.ts:7-16`, `folder-files.ts:3-41` |
 | BB host contract | `inspect` | Project/section move modules | Inspect paths and detect completed move/link | BB host dispatch to connected device | `host.ts:7-16`, `move-files.ts:14-73` |
-| BB host contract | `move` | Project/section move modules | Move a directory and create compatibility path | BB host dispatch to connected device | `host.ts:7-16`, `move-files.ts:74-95` |
-| BB host contract | `link` | Section move module | Link a folder renamed outside BB | BB host dispatch to connected device | `host.ts:7-16`, `move-files.ts:96-118` |
-| BB host contract | `github_remotes` | Project tree metadata refresh | Resolve GitHub remote and visibility | BB host dispatch to connected device | `host.ts:7-16`, `github-remote.ts:1-30` |
+| BB host contract | `move` | Project/section move modules | Move a directory and create compatibility path | BB host dispatch to connected device | `host.ts:8-18`, `move-files.ts:74-95` |
+| BB host contract | `link` | Section move module | Link a folder renamed outside BB | BB host dispatch to connected device | `host.ts:8-18`, `section-move.ts:287-293`, `move-files.ts:96-118` |
+| BB host contract | `github_remotes` | Project tree metadata refresh | Resolve GitHub remote metadata for compatibility | BB host dispatch to connected device | `host.ts:8-18`, `github-remote.ts:1-30` |
+| BB host contract | `repo_remotes` | Project tree metadata refresh | Resolve supported repository remote metadata | BB host dispatch to connected device | `host.ts:8-18`, `repo-remote.ts:187-198` |
 | BB host contract | `session_inventory` | Session policy editor | List host MCP servers and native CLI plugins | BB host dispatch to connected device | `host.ts:7-16`, `session-inventory.ts:1-45` |
 
-The host contract operations are typed in `move-contract.ts:1-56`.
+The host contract operations are typed in `move-contract.ts:10-63`.
 
 ### Contract behavior details
 
 [RPC and host contract behavior](api-contracts.md) covers `rpcContract`, `moveHostContract` and `removeSection`, including their branches and failures.
 
-### `makeProjectMoves`
-
-1. The factory opens the project-move journal, exposes `list`, `busy` and canonical-path resolution, and creates a host client. A move has a process-local single-operation guard (`project-move.ts:18-45`).
-2. It finds the requested project and its local-path source on the requested host. An unfinished journal may only be retried with its saved host and destination; otherwise it creates a journal in memory with the current source and resolved destination (`project-move.ts:46-77`).
-3. Before filesystem work it rejects overlapping project source trees, other-project environments inside the source, same-project environments outside the source, and non-archived section archive records. It asks the host to inspect the move and inventories all hidden, archived and unarchived project threads in pages of 200 (`project-move.ts:78-139`).
-4. The preflight rejects active/starting/stopping/pending threads, queued work and positive activity. It then writes the journal as a barrier, emits `changed`, drains pending exports, and runs a second check that stops threads that still pass the busy-work guard before asking the host to move the directory (`project-move.ts:140-177`).
-5. After the host move it updates the BB project source path. It rebases archive manifests, section paths and export paths in the plugin database, marks the journal complete, clears its error, emits `changed` and returns the journal (`project-move.ts:178-227`).
-6. Any failure is rethrown. The catch stores the error only when the journal is already present in persistent storage; the `finally` block always clears the in-memory running guard. Since the journal is first persisted after preflight, a failure before that write leaves no retry record (`project-move.ts:70-80`, `project-move.ts:166-169`, `project-move.ts:234-243`).
-
-| Branch | Condition | Outcome |
-|---|---|---|
-| Completed path alias | A prior completed move maps the supplied path through its journal chain | Canonical path is returned; more than 100 chained links throws (`project-move.ts:29-39`). |
-| Retry | An unfinished project journal exists | Only its original host and destination are accepted (`project-move.ts:55-77`). |
-| Host filesystem move | Source exists and preflight succeeds | Host renames the folder and creates the old-path compatibility link (`project-move.ts:140-177`, `move-files.ts:74-91`). |
-| Metadata finalization | Host move succeeds | BB source, folder paths, archive manifests and export paths are rebased and the journal is completed (`project-move.ts:178-227`). |
+Project relocation’s call sequence, preflight branches, journal outcomes and failures are documented under [`makeProjectMoves`](api-contracts.md#makeprojectmoves-steps-and-outcomes).
 
 ### `deleteProject`
 
@@ -185,15 +173,15 @@ The host contract operations are typed in `move-contract.ts:1-56`.
 
 | Operation | Input branch | Output / failure behavior |
 |---|---|---|
-| `thread_move` | Target schema plus non-empty thread ID | Path and optional `asked=false`; invalid target/thread ID is rejected (`server.ts:188-194`). |
-| `thread_section` | Thread ID | Nullable section labels/path/project name plus pending flag, allowing unresolved workspace to be retried (`server.ts:196-213`). |
-| `project_move` | Project ID, host ID and non-empty destination | Destination and completion flag; handler/host errors propagate through RPC (`server.ts:215-222`). |
-| `pending_moves` | `null` only | Array of project, host, destination and nullable error records (`server.ts:223-233`). |
-| `group_create` | Target schema and trimmed name of 1–120 characters | Created folder schema; schema or handler rejects invalid targets (`server.ts:234-237`). |
-| `group_delete` | Non-empty folder ID | Returns `{ok:true}` after deleting an empty group; rejects a missing/non-group ID or a group with children (`server.ts:242-245`, `server.ts:2180-2192`). |
-| `thread_place` | Non-empty thread/project IDs and nullable folder ID | Literal `{ok:true}` after placement (`server.ts:242-250`). |
+| `thread_move` | Target schema plus non-empty thread ID | Path and `asked` flag, defaulting to `false` (`server.ts:167-174`). |
+| `thread_section` | Thread ID string | Nullable section metadata and a `pending` flag (`server.ts:175-192`). |
+| `project_move` | Project ID, host ID and non-empty destination | Destination and completion flag (`server.ts:194-201`). |
+| `pending_moves` | `null` only | Array of project, host, destination and nullable error records (`server.ts:202-212`). |
+| `group_delete` | Non-empty folder ID | Returns `{ok:true}` after deleting a childless group; missing or non-group IDs and groups with children reject (`server.ts:217-220`, `server.ts:2250-2263`). |
+| `thread_place` | Non-empty thread/project IDs and nullable section ID | Returns `{ok:true}` after validating the thread and section belong to the same project and the target is not a group (`server.ts:221-229`, `server.ts:2264-2287`). |
+| `thread_place_clear` | Non-empty thread ID | Deletes the saved manual placement and returns `{ok:true}` (`server.ts:230-233`, `server.ts:2289-2293`). |
 
-The contract continues with the remaining RPC operations in the route tables above; handler registration binds the full contract as one typed surface (`server.ts:187-621`, `server.ts:3359-3360`).
+The contract continues with the remaining RPC operations in the route tables above; handler registration binds the full contract as one typed surface (`server.ts:166-623`, `server.ts:3537`).
 
 ### `linkDirectory` filesystem branch
 
@@ -229,9 +217,9 @@ Missing or unreadable files become empty input, and JSON parsing accepts line co
 | BB CLI | `bb project-folders move-section <folder-id> <absolute-path>` | Move or re-link section |
 | BB CLI | `bb project-folders archives` | List archive records |
 | BB CLI | `bb project-folders archive <folder-id>` | Archive section subtree |
-| BB CLI | `bb project-folders remove-section <folder-id> archive\|unbind\|purge` | Remove a section with the selected retention mode (`server.ts:3827-3832`, `server.ts:3943-3947`) |
-| BB CLI | `bb project-folders backup [--out file]` | Export durable plugin tables (`server.ts:3786-3789`, `server.ts:3957-3965`) |
-| BB CLI | `bb project-folders restore <archive-id\|file> [--merge]` | Restore an archive or import a backup file (`server.ts:3781-3784`, `server.ts:3948-3956`) |
+| BB CLI | `bb project-folders remove-section <folder-id> archive\|unbind\|purge` | Remove a section with the selected retention mode (`server.ts:3824-3828`, `server.ts:3940-3944`) |
+| BB CLI | `bb project-folders backup [--out file]` | Export plugin data as JSON, printing it or writing it to the `--out` path (`server.ts:3783-3785`, `server.ts:3954-3962`) |
+| BB CLI | `bb project-folders restore <archive-id\|file> [--merge]` | Restore a section archive or import a backup file (`server.ts:3776-3780`, `server.ts:3945-3953`) |
 | BB CLI | `bb project-folders copy-add <project-id> <host-id> <path>` | Add working copy |
 | BB CLI | `bb project-folders copy-remove <project-id> <host-id>` | Remove working copy |
 | BB CLI | `bb project-folders forget <folder-id>` | Compatibility alias for `archive` |
@@ -249,8 +237,8 @@ Command definitions and argument parsing: `server.ts:3741-3850`, `server.ts:3853
 
 ## Business rules
 
-- Every RPC operation is registered against a typed input/output contract (`server.ts:187-623`, `server.ts:3540`).
-- `sections_list` is separate and read-only; its optional `projectId` filters the result (`server.ts:170-185`, `server.ts:3541-3564`).
+- Every RPC operation is registered against a typed input/output contract (`server.ts:166-623`, `server.ts:3537`).
+- `sections_list` is separate and read-only; its optional `projectId` filters the result (`server.ts:148-165`, `server.ts:3537-3560`).
 - CLI commands validate required arguments and call the domain handlers; `--json` is removed from the argument list before parsing (`server.ts:3853-4042`).
 - Section removal rejects active chats, queued work, pending chat moves, pending section moves or archives; `purge` also refuses shared paths and project/environment ownership conflicts (`section-remove.ts:66-150`, `section-remove.ts:187-197`).
 - Backup import defaults to `replace`; `merge` inserts rows without replacing local rows, and both modes reject while a move or archive is in progress (`server.ts:3514-3527`, `backup.ts:127-165`, `backup.ts:179-190`).
@@ -258,8 +246,8 @@ Command definitions and argument parsing: `server.ts:3741-3850`, `server.ts:3853
 
 ## Gotchas
 
-- RPC operation names are contract names, not stable HTTP paths; the BB plugin RPC transport owns the wire route (`server.ts:187-621`, `server.ts:3359-3360`).
-- The `forget` CLI/RPC compatibility name archives a section; it does not permanently delete it (`server.ts:399`, `server.ts:3818-3824`, `server.ts:3939-3942`).
+- RPC operation names are contract names, not stable HTTP paths; the BB plugin RPC transport owns the wire route (`server.ts:166-623`, `server.ts:3537`).
+- The `forget` RPC and CLI compatibility names archive a section; they do not permanently delete it (`server.ts:403`, `server.ts:2940-2945`, `server.ts:3818-3822`, `server.ts:3936-3939`).
 
 ## Related pages
 

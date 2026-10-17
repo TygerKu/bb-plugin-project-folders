@@ -2,7 +2,7 @@
 title: Project and section tree
 type: component
 created: 2026-09-27
-updated: 2026-10-09
+updated: 2026-10-17
 status: active
 confidence: medium
 tags: [sections, projects, groups, feature]
@@ -17,10 +17,12 @@ sources:
   - project-delete.ts
   - section-remove.ts
   - preferences.ts
+  - tree-layout.ts
+  - style.css
 ---
 # Project and section tree
 
-TL;DR: The plugin records a project’s section hierarchy in BB storage while each folder section points to a real directory on one connected host; groups add hierarchy using synthetic paths (`server.ts:686-718`, `server.ts:2152-2178`).
+TL;DR: The plugin records a project’s section hierarchy in BB storage while each folder section points to a real directory on one connected host; groups add hierarchy using synthetic paths (`server.ts:686-718`, `server.ts:2222-2248`).
 
 ## Purpose
 
@@ -30,20 +32,19 @@ The tree organizes BB project chats by their working folder and supports nested 
 
 ### Plugin initialization
 
-1. `plugin(bb)` first defines legacy declarative settings for auto-creation, project/section templates, custom rules, output target and startup text. Those descriptors exist for a one-time read when the new `agents` preference is absent; current values are stored in `preferences` (`server.ts:658-710`, `server.ts:777-830`). It then opens storage and sends ordered schema statements to `bb.storage.migrate`: create folders and feature tables, add rule/preference fields, add folder kinds and chat placements, add execution/session state, create and populate per-host paths, rebuild `folders`, then create keepalive state (`server.ts:711-752`). The migration call has no local recovery block and runs before settings are loaded; a failure interrupts initialization (`server.ts:711-752`, `server.ts:777-830`).
-2. It loads the shared `agents` record from `preferences`. If present, `parseAgents` starts from defaults and keeps only values that pass each field schema. If absent, it reads the legacy declarative settings once; a rejected read is logged, then valid values plus defaults are saved as the new record (`server.ts:772-830`).
-3. It builds readers for folder rows and per-host paths, folder binding/resolution helpers, and an in-memory GitHub metadata cache. `list` schedules a `github_remotes` read for uncached folder/root paths on connected hosts; the host-read catch keeps list available when that request fails (`server.ts:925-974`, `server.ts:976-990`, `server.ts:2481-2486`).
-4. Initialization constructs the project/archive coordinators and other domain helpers, builds the handlers, registers the main plugin RPC and separate discoverable read-only section-list contract, configures BB agent instructions, then registers the CLI command group (`server.ts:2029-2148`, `server.ts:3540-3589`, `server.ts:3741-3850`).
+1. `plugin(bb)` defines the legacy declarative rules settings, opens BB plugin storage, and calls `bb.storage.migrate` with the ordered table and column migrations. These migrations create the tree, rules, move, archive, preference, execution, session, export and keepalive records; they also add folder kinds and chat placements, copy legacy folder paths into per-host bindings, and rebuild `folders` (`server.ts:663-757`). A migration error propagates before the plugin loads its stored settings or registers its handlers; there is no local migration catch (`server.ts:716-757`).
+2. It creates the keepalive store and lifecycle listeners, then defines the shared agents defaults and field schemas. `parseAgents` begins with defaults and replaces a field only when that field passes its own schema (`server.ts:758-800`, `server.ts:801-809`). If `preferences` contains an `agents` row, the parsed values become the in-memory settings. If the row is absent, it reads the legacy declarative settings, logs a rejected read, parses the values over defaults, then persists the migrated record (`server.ts:810-834`).
+3. It builds folder and per-host path readers, bindings, path resolution and project-move canonicalization. It also creates the repository metadata cache. When `list` finds uncached paths on connected hosts, the refresh calls `repo_remotes`; successful results update cached URLs, while a failed host read is caught and leaves the list available with previous metadata retained (`server.ts:835-908`, `server.ts:909-990`, `server.ts:993-1005`, `server.ts:2451-2511`).
+4. It constructs project-move, archive, chat-move and section-move coordinators, then assembles the RPC handlers and registers the section environment provider. Errors during helper construction or environment registration propagate out of plugin initialization (`server.ts:2036-2146`, `server.ts:2163-2178`, `server.ts:3690-3715`).
+5. It registers the main typed RPC, the separate discoverable section-list RPC and BB’s agent-instruction callback, then registers the `project-folders` CLI group (`server.ts:3537-3560`, `server.ts:3562-3586`, `server.ts:3738-3747`).
 
 | Initialization branch | Condition | Result or failure |
 |---|---|---|
-| Existing preferences row | `preferences` contains key `agents` | Parse each known setting against its field schema and use defaults for invalid/missing fields (`server.ts:760-789`). |
-| First settings migration | No `agents` row exists | Read legacy fields once; read rejection is logged, then defaults/valid legacy fields are persisted (`server.ts:806-830`). |
-| GitHub refresh | Connected hosts and uncached folder/root paths are selected | Host remote lookup refreshes metadata; read errors are caught so tree listing stays available (`server.ts:976-990`, `server.ts:925-974`, `server.ts:2481-2486`). |
-| Storage migration | `bb.storage.migrate` throws or rejects | The migration call has no local catch; settings preference loading, helper construction and handler registration do not run (`server.ts:711-752`, `server.ts:777-830`, `server.ts:2029-2148`). |
-| Registration | Initialization reaches registration calls | Register the main typed RPC and separate cross-plugin section listing, configure BB’s agent hook, then register CLI commands (`server.ts:3540-3589`, `server.ts:3741-3850`). |
-
-Database migration and ordinary initialization errors propagate to the plugin loader; the legacy settings read logs and falls back to defaults, while the GitHub remote refresh catches host failures and leaves listing available (`server.ts:711-752`, `server.ts:806-830`, `server.ts:925-974`).
+| Existing agents row | `preferences` contains key `agents` | Start from defaults; keep each stored field only when its own schema accepts it. The valid parsed value stays in memory (`server.ts:793-809`, `server.ts:816-822`). |
+| Legacy settings migration | No `agents` row exists | Read the old declarative settings once. On read failure, log a warning and continue with defaults; valid legacy fields override defaults and the result is saved under `agents` (`server.ts:821-834`). |
+| Storage migration | `bb.storage.migrate` completes or throws | Completion proceeds to keepalive/settings setup; an error escapes before those steps and before RPC, environment or CLI registration (`server.ts:716-757`, `server.ts:758-834`, `server.ts:3537-3560`, `server.ts:3690-3747`). |
+| Repository metadata refresh | `list` has an uncached path on a connected host | `repo_remotes` values populate the cache; failures are caught, keep old URLs, and set the attempted timestamp to back off another immediate read (`server.ts:942-990`, `server.ts:993-1005`, `server.ts:2451-2511`). Disconnected hosts and groups are skipped (`server.ts:993-1003`). |
+| Registration | Initialization reaches the registration calls | Register the RPCs and agent hook, then the section environment and CLI. A registration failure propagates to the plugin loader (`server.ts:3537-3586`, `server.ts:3690-3715`, `server.ts:3738-3747`). |
 
 1. The management UI calls `list` to load folder rows, project roots, workspace bindings, manual chat placements, errors and host state (`server.ts:280-300`, `server.ts:2444-2512`).
 2. Creating a section resolves the selected project/parent and host folder, validates relative paths, then creates the directory through the host filesystem API and persists a row in `folders` (`server.ts:1543-1594`, `server.ts:631-648`, `server.ts:1741-1818`).
@@ -53,7 +54,8 @@ Database migration and ordinary initialization errors propagate to the plugin lo
 6. `reorder` saves the full project order or sibling-section order and publishes `changed`; the management app refreshes on that event (`server.ts:3216-3262`, `server.ts:1570`, `app.tsx:359`).
 7. Project deletion rejects pending project moves or section archives, the personal inbox, and projects with active chats, queued work or activity. `keep` leaves all local copies in place; `archive` moves every local-path source into a sibling project archive on its host. All copies in that deletion share one archive UUID. The plugin then removes its project rows and deletes the BB project (`project-delete.ts:27-60`, `project-delete.ts:62-124`). See [Section archive and restore](archive-and-restore.md) for the dialog’s file-retention choices.
 8. Section deletion calls `section_remove`, which supports archive, unbind and purge modes; its chat selection, path ownership checks and refusal cases are documented in [Section archive and restore](archive-and-restore.md#modes) (`app.tsx:569-574`, `server.ts:359-368`, `section-remove.ts:48-79`).
-9. Hide/show actions on project and section menus persist a `hidden` flag in item styles. Hidden nodes leave the sidebar tree unless “Show hidden” is enabled; that view renders them dimmed and keeps their chats and work available (`app.tsx:2098-2102`, `app.tsx:2155-2167`, `preferences.ts:59-64`). The management page has the same hide/show action (`app.tsx:4136-4144`).
+9. Hide/show actions on project and section menus persist a `hidden` flag in item styles. Hidden nodes leave the sidebar tree unless “Show hidden” is enabled; their chats and work remain available (`app.tsx:2221-2233`, `app.tsx:2455-2459`, `app.tsx:2553-2562`). The management page reads the same item-style flag and exposes a matching hide/show action (`app.tsx:3089-3100`, `app.tsx:4214-4222`).
+10. The sidebar derives shared row geometry from the saved indent: child guides center on the parent chevron, and chat rows reserve the chevron column so chat markers align with child-section markers and “Show all” (`tree-layout.ts:8-23`, `app.tsx:2460-2468`, `style.css:2057-2091`). Indent is clamped to 0–32 pixels; non-finite values use 8 pixels (`tree-layout.ts:8-12`).
 
 ## Modes
 
@@ -89,7 +91,7 @@ Hidden state is a presentation preference stored with the project or section’s
 ## Business rules
 
 - Names and paths are validated before folder creation. Relative paths cannot traverse upward, enter `.bb` or `.git`, or resolve to the parent itself; an absolute path can select a folder elsewhere on the same device after external-path ownership checks (`server.ts:141-145`, `server.ts:631-648`, `server.ts:1657-1687`).
-- Groups use a synthetic path rather than a filesystem folder and cannot be selected as a chat environment (`server.ts:2152-2178`, `server.ts:3485-3509`).
+- Groups store an `@group/<id>` marker instead of a filesystem path, and section-environment validation rejects a group because it has no folder of its own (`server.ts:2222-2248`, `server.ts:3664-3672`).
 - A new section environment must belong to the selected project and have a folder binding on the selected host; a busy move or archive blocks environment creation (`server.ts:3655-3691`).
 - Section depth is for display/inheritance; groups do not increment it (`section-tree.ts:8-11`, `app.tsx:115-128`).
 - The folder browser lists child directories and the host folder editor refuses path traversal, symlinks and registered folders (`folder-browser.tsx:9-68`, `folder-files.ts:3-41`).
@@ -118,7 +120,7 @@ The server forwards directory edits to the selected connected host; host validat
 | `list`, `machines`, `project_browse`, `project_create`, `project_delete` | Load tree and hosts, browse/create/remove BB projects; `project_delete` accepts a keep/archive file choice (`server.ts:268-310`, `server.ts:2608`, `project-delete.ts:27-124`) |
 | `create`, `group_create`, `group_delete`, `rename`, `reorder`, `section_reparent`, `folder_edit` | Change sections, groups, names, ordering and directories | `server.ts:234-310`, `server.ts:371-414` |
 | `locations`, `browse` | Select host/path for a new section | `server.ts:372-394` |
-| `sections_list` | Read-only section listing for other plugins; optional project filter | `server.ts:170-185`, `server.ts:3359-3382` |
+| `sections_list` | Read-only section listing for other plugins; optional project filter | `server.ts:148-165`, `server.ts:3537-3560` |
 | `section_remove` | Archive, unbind or purge a section and its selected chats | `server.ts:359-368`, `section-remove.ts:48-79` |
 | `bb project-folders list`, `create` | CLI tree listing and section creation | `server.ts:3580-3588`, `server.ts:3665-3676` |
 
@@ -137,13 +139,3 @@ The server forwards directory edits to the selected connected host; host validat
 - [Section archive and restore](archive-and-restore.md)
 - [Chat list and activity](chat-list.md)
 - [Projects & Sections — Overview](../overview.md)
-
-## Repository links and privacy
-
-Sections inside GitHub, GitLab.com (including subgroups) and Bitbucket.org checkouts show a repository link. The device reads the nearest Git `origin` locally (up to 16 ancestors), strips credentials and validates a fixed list of public hosts. Self-hosted repositories remain unmarked. No Git command is executed. Local remote metadata is cached for six minutes; disconnected devices are skipped and failed reads back off for the same period.
-
-**Projects → Check repository visibility** is off by default, including for existing installations. Links work without network visibility checks. Enabling it allows the BB server to send an anonymous GET containing only the canonical repository owner/group and repository name to `api.github.com/repos/…`, `gitlab.com/api/v4/projects/…` or `api.bitbucket.org/2.0/repositories/…`. GitLab subgroup paths are encoded as one project identifier. Local folder paths, source credentials, cookies, authorization and referrers are never sent. Redirects are rejected and each request has a four-second deadline.
-
-Visibility results, including failures, are shared across devices by URL for 30 minutes in a bounded in-memory cache (512 entries, four requests at once). Disabling the option or unloading the plugin cancels pending requests and clears this cache. A 404 shows a lock labelled **Private or unavailable repository**: anonymous access cannot distinguish a private repository from a removed one. Authentication failures, rate limits, redirects, timeouts and other errors leave visibility unknown.
-
-The host method `repo_remotes` and folder fields `repoUrl`, `repoProvider`, `repoPrivate` support all three providers. The earlier `github_remotes`, `githubUrl` and `githubPrivate` remain available for compatibility; the GitHub fields are null for other providers.
