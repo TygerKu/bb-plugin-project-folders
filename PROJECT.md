@@ -1,11 +1,12 @@
 ---
 title: Projects & Sections — Project facts
-updated: 2026-10-09
+updated: 2026-10-17
 sources:
   - package.json
   - server.ts
   - app.tsx
   - host.ts
+  - repo-remote.ts
   - project-delete.ts
   - section-remove.ts
   - cache-keepalive.ts
@@ -17,7 +18,7 @@ sources:
 # Identity
 
 - BB plugin package: `bb-plugin-project-folders`; product name: Projects & Sections (`package.json:2-17`).
-- TypeScript ES module; BB `>=0.43.3`; SDK `>=0.4.84` (`package.json:4-7`).
+- TypeScript ES module; BB `>=0.43.3`; SDK `>=0.4.104` (`package.json:4-7`).
 - Plugin entries: `server.ts`, `app.tsx`, `host.ts` (`package.json:9-18`).
 - License: MIT (`package.json:70`).
 
@@ -25,12 +26,12 @@ sources:
 
 - Server: RPC contract, persistence, BB SDK integration, CLI commands — [API](docs/api.md), [architecture](docs/architecture.md) (`server.ts:187-621`, `server.ts:631-718`).
 - App: plugin surfaces and settings (`app.tsx:1-70`).
-- Host: filesystem, move/link, GitHub remote and session inventory operations (`host.ts:7-16`).
+- Host: filesystem, move/link, repository remote and session inventory operations (`host.ts:8-18`, `repo-remote.ts:187-198`).
 - Domain modules: archive, project move, section move, thread move, preferences, execution, session policy and export queue — [data model](docs/data-model.md), [features](docs/features/project-tree.md).
 
 ## Critical invariants
 
-- Groups are organizational nodes with synthetic paths; use a real section for a chat environment (`section-tree.ts:8-11`, `server.ts:2152-2178`, `server.ts:3485-3509`).
+- Groups are organizational nodes with synthetic paths; use a real section for a chat environment (`server.ts:2222-2248`, `server.ts:3664-3672`).
 - The composer accepts a section only when it belongs to the selected project, is a real folder section, has a path binding on the chosen host, and is not moving or archiving (`server.ts:3655-3691`).
 - Filesystem section moves persist a journal before changing files; failures retain an error for retry (`section-move.ts:268-293`, `section-move.ts:347-353`).
 - Project deletion and its file-retention constraints: [project and section tree](docs/features/project-tree.md#how-it-works).
@@ -61,8 +62,8 @@ sources:
 | `npm run typecheck` | TypeScript check (`package.json:80-83`). |
 | `npm test` | Run Vitest (`package.json:80-83`). |
 | `npm run build` | Build with BB CLI (`package.json:80-84`). |
-| `bb project-folders list` | List section metadata (`server.ts:3665-3666`). |
-| `bb project-folders sync <thread-id>` | Export a chat history snapshot (`server.ts:3806-3809`). |
+| `bb project-folders list` | List sections and project roots (`server.ts:3788-3790`, `server.ts:3886-3887`). |
+| `bb project-folders sync <thread-id>` | Export a chat history snapshot (`server.ts:3843-3845`, `server.ts:4049-4050`). |
 
 ## Where to look next
 
