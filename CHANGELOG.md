@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.5 — Auto-archive failed chats too
+
+- Auto-archive now also moves old chats whose last run ended in an error. Running, starting, waiting and pinned chats are still left alone.
+
 ## 0.7.4 — Auto-archive old chats
 
 - New settings section "Chat auto-archive": when enabled, chats with no activity for N days (7 by default, 1–365) move to the BB archive. Checked hourly, with an "Archive" button to run it at once.

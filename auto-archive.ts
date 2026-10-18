@@ -73,6 +73,7 @@ export interface AutoArchiveDeps {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PAGE = 200;
 const SWEEP_MS = 60 * 60 * 1000;
+const QUIET = new Set(["idle", "error"]);
 
 /** Last moment anything happened in the chat. */
 export function lastActivityAt(thread: AutoArchiveThread): number {
@@ -85,7 +86,7 @@ export function lastActivityAt(thread: AutoArchiveThread): number {
 
 /**
  * A chat is archived only when it is quiet: not pinned, not a child of
- * another chat, idle, nothing queued or waiting on the user, and older than
+ * another chat, idle or failed, nothing queued or waiting on the user, and older than
  * the configured number of days since its last activity.
  */
 export function isStale(
@@ -96,9 +97,10 @@ export function isStale(
   if (thread.archivedAt != null || thread.deletedAt != null) return false;
   if (thread.pinnedAt != null) return false;
   if (thread.parentThreadId) return false;
-  if (thread.status !== "idle") return false;
+  // A chat that ended in an error is as finished as an idle one.
+  if (!QUIET.has(thread.status)) return false;
   const display = thread.runtime?.displayStatus;
-  if (display && display !== "idle") return false;
+  if (display && !QUIET.has(display)) return false;
   if (thread.hasPendingInteraction) return false;
   if (thread.queuedWork && thread.queuedWork !== "none") return false;
   if (thread.activity && Object.values(thread.activity).some((n) => n > 0))

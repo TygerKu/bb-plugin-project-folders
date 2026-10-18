@@ -47,6 +47,11 @@ describe("isStale", () => {
   it("archives a quiet chat older than N days", () => {
     expect(isStale(thread(), on, NOW)).toBe(true);
   });
+  it("archives an old chat that ended in an error", () => {
+    expect(
+      isStale(thread({ status: "error", runtime: { displayStatus: "error" } }), on, NOW),
+    ).toBe(true);
+  });
   it("keeps a chat with recent activity", () => {
     expect(isStale(thread({ updatedAt: NOW - 2 * DAY }), on, NOW)).toBe(false);
     expect(isStale(thread({ latestAttentionAt: NOW - DAY }), on, NOW)).toBe(false);
@@ -55,6 +60,7 @@ describe("isStale", () => {
     expect(isStale(thread({ pinnedAt: 1 }), on, NOW)).toBe(false);
     expect(isStale(thread({ parentThreadId: "p" }), on, NOW)).toBe(false);
     expect(isStale(thread({ status: "active" }), on, NOW)).toBe(false);
+    expect(isStale(thread({ status: "starting" }), on, NOW)).toBe(false);
     expect(isStale(thread({ runtime: { displayStatus: "active" } }), on, NOW)).toBe(false);
     expect(isStale(thread({ hasPendingInteraction: true }), on, NOW)).toBe(false);
     expect(isStale(thread({ queuedWork: "waiting" }), on, NOW)).toBe(false);
