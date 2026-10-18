@@ -438,5 +438,16 @@
   "Проверять видимость репозиториев": "Comprobar visibilidad del repositorio",
   "Выключено по умолчанию. Анонимно отправляет только владельца и имя репозитория в API GitHub, GitLab или Bitbucket для значка замка. Кеш — 30 минут; локальные пути и учётные данные не отправляются.": "Desactivado por defecto. Envía anónimamente solo el propietario y nombre del repositorio a la API de GitHub, GitLab o Bitbucket para el candado. Caché de 30 minutos; no envía rutas locales ni credenciales.",
   "Приватный или недоступный репозиторий": "Repositorio privado o no disponible",
-  "Открыть приватный или недоступный репозиторий": "Abrir repositorio privado o no disponible"
+  "Открыть приватный или недоступный репозиторий": "Abrir repositorio privado o no disponible",
+  "Автоархив чатов": "Archivado automático de chats",
+  "Убирать в архив BB чаты, в которых давно ничего не происходит.": "Mover al archivo de BB los chats sin actividad reciente.",
+  "Отправлено в архив: {n}": "Archivados: {n}",
+  "Старых чатов нет.": "No hay chats antiguos.",
+  "Закреплённые, работающие, ждущие ответа и вложенные чаты не трогаются. Проверка раз в час; чат можно вернуть из архива BB.": "Los chats fijados, en ejecución, en espera y anidados no se tocan. Se revisa cada hora; un chat se puede restaurar desde el archivo de BB.",
+  "Архивировать старые чаты": "Archivar chats antiguos",
+  "Чат уходит в архив, если в нём не было активности N дней.": "Un chat se archiva tras N días sin actividad.",
+  "Через сколько дней": "Tras cuántos días",
+  "От 1 до 365 дней. По умолчанию 7.": "De 1 a 365 días. Por defecto 7.",
+  "Проверить сейчас": "Revisar ahora",
+  "Не ждать часовой проверки.": "No esperar a la revisión horaria."
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { rpcContract } from "./server";
 import { LanguagePicker, t } from "./i18n";
+import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Icon } from "./components/ui/icon";
 import { ChatSettings } from "./chat-settings";
@@ -19,10 +20,15 @@ import {
   defaultCacheKeepaliveConfig,
   type CacheKeepaliveConfig,
 } from "./cache-keepalive";
+import {
+  defaultAutoArchiveConfig,
+  type AutoArchiveConfig,
+} from "./auto-archive";
 
 export const SETTINGS_SECTIONS = [
   "projects",
   "list",
+  "autoArchive",
   "appearance",
   "rules",
   "execution",
@@ -47,6 +53,11 @@ const meta = (section: SettingsSection) =>
       icon: "ListTodo",
       title: t("Список чатов"),
       hint: t("Порядок чатов, сворачивание разделов и вид дерева."),
+    },
+    autoArchive: {
+      icon: "Clock",
+      title: t("Автоархив чатов"),
+      hint: t("Убирать в архив BB чаты, в которых давно ничего не происходит."),
     },
     appearance: {
       icon: "Palette",
@@ -265,6 +276,106 @@ export function CacheKeepaliveSettings() {
   );
 }
 
+export function AutoArchiveSettings() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [config, setConfig] = useState<AutoArchiveConfig>(defaultAutoArchiveConfig);
+  const [days, setDays] = useState(String(defaultAutoArchiveConfig.days));
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+
+  useEffect(() => {
+    rpc.call("auto_archive_get", null)
+      .then((res) => {
+        setConfig(res);
+        setDays(String(res.days));
+      })
+      .catch(() => {});
+  }, [rpc]);
+
+  const save = (updated: AutoArchiveConfig) => {
+    setConfig(updated);
+    setResult("");
+    rpc.call("auto_archive_save", updated).catch(() => {});
+  };
+
+  const runNow = async () => {
+    setBusy(true);
+    setResult("");
+    try {
+      const { archived } = await rpc.call("auto_archive_run", null);
+      setResult(
+        archived
+          ? t("Отправлено в архив: {n}").replace("{n}", String(archived))
+          : t("Старых чатов нет."),
+      );
+    } catch (e) {
+      setResult(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="pf-sgroup">
+      <SettingsGroup
+        title={t("Автоархив чатов")}
+        hint={t(
+          "Закреплённые, работающие, ждущие ответа и вложенные чаты не трогаются. Проверка раз в час; чат можно вернуть из архива BB.",
+        )}
+      >
+        <SettingRow
+          label={t("Архивировать старые чаты")}
+          hint={t("Чат уходит в архив, если в нём не было активности N дней.")}
+        >
+          <Switch
+            label={t("Архивировать старые чаты")}
+            checked={config.enabled}
+            onChange={(checked) => save({ ...config, enabled: checked })}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label={t("Через сколько дней")}
+          hint={t("От 1 до 365 дней. По умолчанию 7.")}
+          disabled={!config.enabled}
+        >
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={days}
+            disabled={!config.enabled}
+            onChange={(e) => {
+              setDays(e.target.value);
+              const val = Number.parseInt(e.target.value, 10);
+              if (!Number.isNaN(val) && val >= 1 && val <= 365) {
+                save({ ...config, days: val });
+              }
+            }}
+            onBlur={() => setDays(String(config.days))}
+            className="pf-input pf-num-input"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label={t("Проверить сейчас")}
+          hint={result || t("Не ждать часовой проверки.")}
+          disabled={!config.enabled}
+        >
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!config.enabled || busy}
+            onClick={() => void runNow()}
+          >
+            {t("Архивировать")}
+          </Button>
+        </SettingRow>
+      </SettingsGroup>
+    </div>
+  );
+}
+
 /** The list of settings sections; the host decides where it sits. */
 export function SettingsNav({
   value,
@@ -355,6 +466,7 @@ export function SettingsPane({
           <SessionPolicyEditor scope={{ kind: "global" }} />
         </SettingsGroup>
       )}
+      {section === "autoArchive" && <AutoArchiveSettings />}
       {section === "cache" && <CacheKeepaliveSettings />}
       {section === "archive" && archive}
       {section === "transfer" && <TransferSettings />}

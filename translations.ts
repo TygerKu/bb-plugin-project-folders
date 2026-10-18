@@ -570,4 +570,26 @@ export const english = {
     "For example: reply in English, use Conventional Commits",
   "Например: запусти скилл и пришли текущие задачи":
     "For example: run the skill and send the current tasks",
+  "Автоархив чатов":
+    "Chat auto-archive",
+  "Убирать в архив BB чаты, в которых давно ничего не происходит.":
+    "Move chats with no recent activity to the BB archive.",
+  "Отправлено в архив: {n}":
+    "Archived: {n}",
+  "Старых чатов нет.":
+    "No old chats.",
+  "Закреплённые, работающие, ждущие ответа и вложенные чаты не трогаются. Проверка раз в час; чат можно вернуть из архива BB.":
+    "Pinned, running, waiting and nested chats are left alone. Checked hourly; a chat can be restored from the BB archive.",
+  "Архивировать старые чаты":
+    "Archive old chats",
+  "Чат уходит в архив, если в нём не было активности N дней.":
+    "A chat is archived after N days without activity.",
+  "Через сколько дней":
+    "After how many days",
+  "От 1 до 365 дней. По умолчанию 7.":
+    "From 1 to 365 days. Default is 7.",
+  "Проверить сейчас":
+    "Check now",
+  "Не ждать часовой проверки.":
+    "Don't wait for the hourly check.",
 } as const;

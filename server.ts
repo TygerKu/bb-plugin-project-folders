@@ -59,6 +59,13 @@ import {
   type CacheKeepaliveConfig,
 } from "./cache-keepalive";
 import {
+  autoArchiveSchema,
+  createAutoArchive,
+  defaultAutoArchiveConfig,
+  parseAutoArchiveConfig,
+  type AutoArchiveConfig,
+} from "./auto-archive";
+import {
   agentCatalogSchema,
   agentMarker,
   AGENT_MARKER_PATTERN,
@@ -626,6 +633,18 @@ export const rpcContract = defineRpcContract({
     input: cacheKeepaliveSchema,
     output: cacheKeepaliveSchema,
   },
+  auto_archive_get: {
+    input: z.null(),
+    output: autoArchiveSchema,
+  },
+  auto_archive_save: {
+    input: autoArchiveSchema,
+    output: autoArchiveSchema,
+  },
+  auto_archive_run: {
+    input: z.null(),
+    output: z.object({ archived: z.number().int() }),
+  },
 });
 const pluginVersion = (
   JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
@@ -774,6 +793,20 @@ export default async function plugin(bb: BbPluginApi) {
   bb.events.on("thread.idle", ({ thread }) => cacheKeepalive.onThreadIdle(thread));
   bb.events.on("thread.archived", ({ thread }) => cacheKeepalive.onThreadRemoved(thread.id));
   bb.events.on("thread.deleted", ({ thread }) => cacheKeepalive.onThreadRemoved(thread.id));
+  // Quiet chats older than N days go to BB's archive; off by default.
+  const loadAutoArchiveConfig = (): AutoArchiveConfig => {
+    const row = db
+      .prepare("SELECT data FROM preferences WHERE key='auto_archive'")
+      .get() as { data: string } | undefined;
+    return row ? parseAutoArchiveConfig(safeJson(row.data)) : defaultAutoArchiveConfig;
+  };
+  let currentAutoArchiveConfig = loadAutoArchiveConfig();
+  const autoArchive = createAutoArchive({
+    sdk: bb.sdk,
+    getConfig: () => currentAutoArchiveConfig,
+    log: bb.log,
+  });
+  bb.onDispose(() => autoArchive.dispose());
   type AgentsSettings = {
     agents_auto_create: boolean;
     agents_project_template: string;
@@ -3533,6 +3566,15 @@ export default async function plugin(bb: BbPluginApi) {
       ).run(JSON.stringify(currentKeepaliveConfig));
       return currentKeepaliveConfig;
     },
+    auto_archive_get: () => currentAutoArchiveConfig,
+    auto_archive_save: (config) => {
+      currentAutoArchiveConfig = parseAutoArchiveConfig(config);
+      db.prepare(
+        "INSERT INTO preferences (key, data) VALUES ('auto_archive', ?) ON CONFLICT(key) DO UPDATE SET data=excluded.data",
+      ).run(JSON.stringify(currentAutoArchiveConfig));
+      return currentAutoArchiveConfig;
+    },
+    auto_archive_run: async () => ({ archived: await autoArchive.sweep() }),
   };
   bb.rpc.register(rpcContract, handlers);
   // Read-only section tree for other plugins (Lane Pilot scopes its settings by section).

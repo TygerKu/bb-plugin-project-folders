@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.4 — Auto-archive old chats
+
+- New settings section "Chat auto-archive": when enabled, chats with no activity for N days (7 by default, 1–365) move to the BB archive. Checked hourly, with an "Archive" button to run it at once.
+- Pinned, running, waiting-for-reply, queued and nested chats are never archived. Archived chats can be restored from the BB archive.
+- Off by default.
+
 ## 0.7.3 — Correct chat nesting at every tree depth
 
 - Place project, section and nested-section chats one full level below their parent. Guides align with parent chevrons, and Show all shares the chat marker/text column.
